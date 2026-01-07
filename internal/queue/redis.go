@@ -381,9 +381,9 @@ func (rq *RedisQueue) EnqueueDLQ(ctx context.Context, t *task.Task, reason strin
 	// Store DLQ metadata
 	metaKey := dlqMetaPrefix + t.ID
 	metadata := map[string]interface{}{
-		"task_id":    t.ID,
-		"reason":     reason,
-		"moved_at":   time.Now().Unix(),
+		"task_id":     t.ID,
+		"reason":      reason,
+		"moved_at":    time.Now().Unix(),
 		"retry_count": t.RetryCount,
 	}
 	metaData, _ := json.Marshal(metadata)
@@ -408,16 +408,16 @@ func (rq *RedisQueue) GetDLQSize(ctx context.Context) (int64, error) {
 // GetDLQTasks retrieves tasks from the dead letter queue
 func (rq *RedisQueue) GetDLQTasks(ctx context.Context, limit int) ([]*task.Task, error) {
 	dlqKey := dlqKeyPrefix + "tasks"
-	
+
 	var taskDataList []string
 	var err error
-	
+
 	if limit > 0 {
 		taskDataList, err = rq.client.LRange(ctx, dlqKey, 0, int64(limit-1)).Result()
 	} else {
 		taskDataList, err = rq.client.LRange(ctx, dlqKey, 0, -1).Result()
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DLQ tasks: %w", err)
 	}

@@ -15,7 +15,7 @@ const (
 	taskStorePrefix   = "spool:store:task:"
 	resultStorePrefix = "spool:store:result:"
 	stateIndexPrefix  = "spool:index:state:"
-	
+
 	// TTL for task data (7 days)
 	taskTTL = 7 * 24 * time.Hour
 	// TTL for result data (30 days)
@@ -152,10 +152,10 @@ func (rs *RedisStorage) GetResult(ctx context.Context, taskID string) (*task.Res
 // GetTasksByState retrieves tasks by their state
 func (rs *RedisStorage) GetTasksByState(ctx context.Context, state task.State, limit int) ([]*task.Task, error) {
 	stateKey := stateIndexPrefix + string(state)
-	
+
 	var taskIDs []string
 	var err error
-	
+
 	if limit > 0 {
 		// Get limited number of task IDs
 		taskIDs, err = rs.client.SRandMemberN(ctx, stateKey, int64(limit)).Result()
@@ -163,7 +163,7 @@ func (rs *RedisStorage) GetTasksByState(ctx context.Context, state task.State, l
 		// Get all task IDs
 		taskIDs, err = rs.client.SMembers(ctx, stateKey).Result()
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task IDs: %w", err)
 	}
