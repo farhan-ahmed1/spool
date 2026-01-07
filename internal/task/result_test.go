@@ -24,6 +24,14 @@ func TestResultCreation(t *testing.T) {
 		t.Error("Expected success to be true")
 	}
 
+	if len(result.Output) == 0 {
+		t.Error("Expected output to be set")
+	}
+
+	if result.CompletedAt.IsZero() {
+		t.Error("Expected CompletedAt to be set")
+	}
+
 	if result.Duration != 5*time.Second {
 		t.Errorf("Expected duration 5s, got %v", result.Duration)
 	}
@@ -39,6 +47,10 @@ func TestFailedResultCreation(t *testing.T) {
 		Duration:    2 * time.Second,
 	}
 
+	if result.TaskID != "failed_task_456" {
+		t.Errorf("Expected task ID 'failed_task_456', got '%s'", result.TaskID)
+	}
+
 	if result.Success {
 		t.Error("Expected success to be false")
 	}
@@ -46,14 +58,22 @@ func TestFailedResultCreation(t *testing.T) {
 	if result.Error != "task execution failed" {
 		t.Errorf("Expected error 'task execution failed', got '%s'", result.Error)
 	}
+
+	if result.CompletedAt.IsZero() {
+		t.Error("Expected CompletedAt to be set")
+	}
+
+	if result.Duration != 2*time.Second {
+		t.Errorf("Expected duration 2s, got %v", result.Duration)
+	}
 }
 
 // TestResultJSONSerialization tests marshaling and unmarshaling result
 func TestResultJSONSerialization(t *testing.T) {
 	original := &Result{
-		TaskID:  "test_task",
-		Success: true,
-		Output:  json.RawMessage(`{"key":"value","number":42}`),
+		TaskID:      "test_task",
+		Success:     true,
+		Output:      json.RawMessage(`{"key":"value","number":42}`),
 		CompletedAt: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 		Duration:    10 * time.Second,
 	}
@@ -97,7 +117,7 @@ func TestResultWithComplexOutput(t *testing.T) {
 			"processed_items": 100,
 			"errors":          0,
 			"metadata": map[string]string{
-				"source": "api",
+				"source":  "api",
 				"version": "1.0",
 			},
 		},
@@ -115,6 +135,22 @@ func TestResultWithComplexOutput(t *testing.T) {
 		Output:      outputBytes,
 		CompletedAt: time.Now(),
 		Duration:    15 * time.Second,
+	}
+
+	if result.TaskID != "complex_task" {
+		t.Errorf("Expected task ID 'complex_task', got '%s'", result.TaskID)
+	}
+
+	if !result.Success {
+		t.Error("Expected success to be true")
+	}
+
+	if result.CompletedAt.IsZero() {
+		t.Error("Expected CompletedAt to be set")
+	}
+
+	if result.Duration != 15*time.Second {
+		t.Errorf("Expected duration 15s, got %v", result.Duration)
 	}
 
 	// Verify output can be unmarshaled
@@ -162,12 +198,24 @@ func TestResultWithError(t *testing.T) {
 		Duration:    30 * time.Second,
 	}
 
+	if result.TaskID != "error_task" {
+		t.Errorf("Expected task ID 'error_task', got '%s'", result.TaskID)
+	}
+
 	if result.Error != errorMsg {
 		t.Errorf("Expected error '%s', got '%s'", errorMsg, result.Error)
 	}
 
 	if result.Success {
 		t.Error("Expected success to be false when error is present")
+	}
+
+	if result.CompletedAt.IsZero() {
+		t.Error("Expected CompletedAt to be set")
+	}
+
+	if result.Duration != 30*time.Second {
+		t.Errorf("Expected duration 30s, got %v", result.Duration)
 	}
 }
 
@@ -189,6 +237,18 @@ func TestResultDuration(t *testing.T) {
 			Duration:    duration,
 		}
 
+		if result.TaskID != "duration_test" {
+			t.Errorf("Expected task ID 'duration_test', got '%s'", result.TaskID)
+		}
+
+		if !result.Success {
+			t.Error("Expected success to be true")
+		}
+
+		if result.CompletedAt.IsZero() {
+			t.Error("Expected CompletedAt to be set")
+		}
+
 		if result.Duration != duration {
 			t.Errorf("Expected duration %v, got %v", duration, result.Duration)
 		}
@@ -206,9 +266,21 @@ func TestResultCompletedAt(t *testing.T) {
 		Duration:    5 * time.Second,
 	}
 
+	if result.TaskID != "timestamp_test" {
+		t.Errorf("Expected task ID 'timestamp_test', got '%s'", result.TaskID)
+	}
+
+	if !result.Success {
+		t.Error("Expected success to be true")
+	}
+
+	if result.Duration != 5*time.Second {
+		t.Errorf("Expected duration 5s, got %v", result.Duration)
+	}
+
 	// Check that timestamp is within a reasonable range
-	if result.CompletedAt.Before(now.Add(-1*time.Second)) || 
-	   result.CompletedAt.After(now.Add(1*time.Second)) {
+	if result.CompletedAt.Before(now.Add(-1*time.Second)) ||
+		result.CompletedAt.After(now.Add(1*time.Second)) {
 		t.Error("CompletedAt timestamp is out of expected range")
 	}
 }
@@ -216,7 +288,7 @@ func TestResultCompletedAt(t *testing.T) {
 // TestMultipleResults tests creating multiple result objects
 func TestMultipleResults(t *testing.T) {
 	results := make([]*Result, 5)
-	
+
 	for i := 0; i < 5; i++ {
 		results[i] = &Result{
 			TaskID:      string(rune('a' + i)),
