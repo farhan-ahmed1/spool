@@ -1,0 +1,3 @@
+package worker
+
+// Worker pool
