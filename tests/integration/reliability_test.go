@@ -66,13 +66,16 @@ func TestRetryLogicWithExponentialBackoff(t *testing.T) {
 	// Create a task handler that fails the first 2 times
 	attemptCount := 0
 	registry := task.NewRegistry()
-	registry.Register("retry_test", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+	err = registry.Register("retry_test", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		attemptCount++
 		if attemptCount <= 2 {
 			return nil, fmt.Errorf("intentional failure (attempt %d)", attemptCount)
 		}
 		return map[string]string{"status": "success"}, nil
 	})
+	if err != nil {
+		t.Fatalf("Failed to register handler: %v", err)
+	}
 
 	// Create worker
 	w := setupTestWorker(q, store, registry)
@@ -141,9 +144,12 @@ func TestDeadLetterQueue(t *testing.T) {
 
 	// Create a task handler that always fails
 	registry := task.NewRegistry()
-	registry.Register("always_fail", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+	err = registry.Register("always_fail", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		return nil, errors.New("persistent failure")
 	})
+	if err != nil {
+		t.Fatalf("Failed to register handler: %v", err)
+	}
 
 	// Create worker
 	w := setupTestWorker(q, store, registry)
@@ -223,7 +229,7 @@ func TestTaskTimeout(t *testing.T) {
 
 	// Create a task handler that takes too long
 	registry := task.NewRegistry()
-	registry.Register("slow_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+	err = registry.Register("slow_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		select {
 		case <-time.After(5 * time.Second):
 			return map[string]string{"status": "completed"}, nil
@@ -231,6 +237,9 @@ func TestTaskTimeout(t *testing.T) {
 			return nil, ctx.Err()
 		}
 	})
+	if err != nil {
+		t.Fatalf("Failed to register handler: %v", err)
+	}
 
 	// Create worker
 	w := setupTestWorker(q, store, registry)
@@ -302,10 +311,13 @@ func TestTaskStateTracking(t *testing.T) {
 
 	// Create a task handler
 	registry := task.NewRegistry()
-	registry.Register("state_test", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+	err = registry.Register("state_test", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		time.Sleep(100 * time.Millisecond)
 		return map[string]string{"status": "completed"}, nil
 	})
+	if err != nil {
+		t.Fatalf("Failed to register handler: %v", err)
+	}
 
 	// Create worker
 	w := setupTestWorker(q, store, registry)
