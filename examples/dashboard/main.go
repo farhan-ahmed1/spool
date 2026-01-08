@@ -24,7 +24,7 @@ import (
 // DashboardDemo demonstrates the real-time dashboard with a realistic workload
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("🚀 Starting Spool Dashboard Demo...")
+	log.Println("Starting Spool Dashboard Demo...")
 
 	// Load configuration
 	redisAddr := "localhost:6379"
@@ -85,7 +85,7 @@ func main() {
 			return nil, fmt.Errorf("email send failed: SMTP timeout")
 		}
 		
-		log.Printf("✓ Sent email task")
+		log.Printf("Sent email task")
 		return "success", nil
 	})
 
@@ -98,7 +98,7 @@ func main() {
 			return nil, fmt.Errorf("report generation failed: insufficient data")
 		}
 		
-		log.Printf("✓ Generated report task")
+		log.Printf("Generated report task")
 		return "success", nil
 	})
 
@@ -111,7 +111,7 @@ func main() {
 			return nil, fmt.Errorf("data export failed: disk full")
 		}
 		
-		log.Printf("✓ Exported data task")
+		log.Printf("Exported data task")
 		return "success", nil
 	})
 
@@ -124,12 +124,12 @@ func main() {
 			return nil, fmt.Errorf("backup failed: connection lost")
 		}
 		
-		log.Printf("✓ Backed up database task")
+		log.Printf("Backed up database task")
 		return "success", nil
 	})
 
 	// Start worker pool with 5 workers
-	log.Println("🏃 Starting worker pool with 5 workers...")
+	log.Println("Starting worker pool with 5 workers...")
 	
 	workers := make([]*worker.Worker, 5)
 	for i := 0; i < 5; i++ {
@@ -151,7 +151,7 @@ func main() {
 	}
 
 	// Start dashboard server
-	log.Println("🌐 Starting dashboard server on http://localhost:8080")
+	log.Println("Starting dashboard server on http://localhost:8080")
 	dashboard := web.NewServer(web.Config{
 		Addr:    ":8080",
 		Metrics: metrics,
@@ -170,7 +170,7 @@ func main() {
 
 	// Display instructions
 	fmt.Println("\n" + strings.Repeat("=", 70))
-	fmt.Println("📊 DASHBOARD DEMO RUNNING")
+	fmt.Println("DASHBOARD DEMO RUNNING")
 	fmt.Println(strings.Repeat("=", 70))
 	fmt.Println("Dashboard URL: http://localhost:8080")
 	fmt.Println("Workers:       5 active workers processing tasks")
@@ -199,14 +199,14 @@ func main() {
 	}
 
 	// Graceful shutdown
-	log.Println("🛑 Stopping workers...")
+	log.Println("Stopping workers...")
 	cancel() // Cancel context for all workers
 
 	// Wait for workers to finish
 	time.Sleep(2 * time.Second)
 
 	// Stop dashboard
-	log.Println("🛑 Stopping dashboard server...")
+	log.Println("Stopping dashboard server...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -217,7 +217,7 @@ func main() {
 	// Print final statistics
 	snapshot := metrics.Snapshot()
 	fmt.Println("\n" + strings.Repeat("=", 70))
-	fmt.Println("📈 FINAL STATISTICS")
+	fmt.Println("FINAL STATISTICS")
 	fmt.Println(strings.Repeat("=", 70))
 	fmt.Printf("Tasks Enqueued:    %d\n", snapshot.TasksEnqueued)
 	fmt.Printf("Tasks Processed:   %d\n", snapshot.TasksProcessed)
@@ -229,7 +229,7 @@ func main() {
 	fmt.Printf("Total Uptime:      %v\n", snapshot.Uptime)
 	fmt.Println(strings.Repeat("=", 70))
 
-	log.Println("✅ Demo completed successfully!")
+	log.Println("Demo completed successfully!")
 }
 
 // generateTasks continuously generates tasks to simulate a realistic workload
@@ -250,7 +250,7 @@ func generateTasks(ctx context.Context, q queue.Queue, metrics *monitoring.Metri
 	}
 
 	// Initial burst of tasks
-	log.Println("📤 Generating initial batch of 20 tasks...")
+	log.Println("Generating initial batch of 20 tasks...")
 	for i := 0; i < 20; i++ {
 		generateSingleTask(ctx, q, metrics, taskTypes, priorities)
 		time.Sleep(100 * time.Millisecond)
@@ -275,7 +275,7 @@ func generateTasks(ctx context.Context, q queue.Queue, metrics *monitoring.Metri
 			}
 		case <-burstTicker.C:
 			// Periodic burst of tasks to test scaling
-			log.Println("📤 Generating task burst (10 tasks)...")
+			log.Println("Generating task burst (10 tasks)...")
 			for i := 0; i < 10; i++ {
 				generateSingleTask(ctx, q, metrics, taskTypes, priorities)
 				time.Sleep(50 * time.Millisecond)
@@ -316,6 +316,6 @@ func generateSingleTask(ctx context.Context, q queue.Queue, metrics *monitoring.
 	
 	// Log only critical tasks to reduce noise
 	if priority == task.PriorityCritical {
-		log.Printf("📥 Enqueued CRITICAL task: %s (type: %s, id: %s)", t.Type, t.Type, t.ID)
+		log.Printf("Enqueued CRITICAL task: %s (type: %s, id: %s)", t.Type, t.Type, t.ID)
 	}
 }

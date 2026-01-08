@@ -397,7 +397,7 @@
     <header>
         <div class="container">
             <h1>
-                🎯 Spool Dashboard
+                Spool Dashboard
                 <span id="queueHealth" class="status-badge status-healthy">Healthy</span>
             </h1>
             <p>Real-time monitoring for your distributed task queue system</p>
@@ -415,8 +415,8 @@
                 <div class="card-title">Queue Depth</div>
                 <div class="card-value" id="queueDepth">--</div>
                 <div class="card-subtitle">
-                    <span style="color: var(--danger-color);">↑ High: <span id="queueDepthHigh">--</span></span> | 
-                    <span style="color: var(--success-color);">↓ Low: <span id="queueDepthLow">--</span></span>
+                    <span style="color: var(--danger-color);">High: <span id="queueDepthHigh">--</span></span> | 
+                    <span style="color: var(--success-color);">Low: <span id="queueDepthLow">--</span></span>
                 </div>
             </div>
 
@@ -424,8 +424,8 @@
                 <div class="card-title">Active Workers</div>
                 <div class="card-value" id="activeWorkers">--</div>
                 <div class="card-subtitle">
-                    <span style="color: var(--warning-color);">⚡ Busy: <span id="busyWorkers">--</span></span> | 
-                    <span style="color: var(--success-color);">💤 Idle: <span id="idleWorkers">--</span></span>
+                    <span style="color: var(--warning-color);">Busy: <span id="busyWorkers">--</span></span> | 
+                    <span style="color: var(--success-color);">Idle: <span id="idleWorkers">--</span></span>
                 </div>
                 <div class="card-metric">
                     <span class="metric-label">Utilization</span>
@@ -455,7 +455,7 @@
 
         <!-- Queue Depth Chart -->
         <div class="chart-container">
-            <div class="chart-title">📊 Queue Depth Over Time</div>
+            <div class="chart-title">Queue Depth Over Time</div>
             <div class="chart-wrapper">
                 <canvas id="queueChart"></canvas>
             </div>
@@ -488,9 +488,9 @@
         <!-- Tabbed Interface -->
         <div class="chart-container">
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('workers')">👷 Workers</button>
-                <button class="tab" onclick="switchTab('tasks')">📋 Recent Tasks</button>
-                <button class="tab" onclick="switchTab('dlq')">⚠️ Dead Letter Queue</button>
+                <button class="tab active" onclick="switchTab('workers')">Workers</button>
+                <button class="tab" onclick="switchTab('tasks')">Recent Tasks</button>
+                <button class="tab" onclick="switchTab('dlq')">Dead Letter Queue</button>
             </div>
 
             <div id="workers-tab" class="tab-content active">
@@ -507,7 +507,7 @@
                 <div class="chart-title">Recent Tasks</div>
                 <div id="tasksList" class="task-list">
                     <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-icon"></div>
                         <p>No recent tasks to display</p>
                         <p style="font-size: 0.875rem; margin-top: 8px;">Tasks will appear here as they are processed</p>
                     </div>
@@ -652,7 +652,7 @@
             if (metrics.activeWorkers === 0) {
                 container.innerHTML = `
                     <div class="empty-state" style="grid-column: 1/-1;">
-                        <div class="empty-state-icon">😴</div>
+                        <div class="empty-state-icon"></div>
                         <p>No active workers</p>
                     </div>
                 `;
