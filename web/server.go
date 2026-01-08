@@ -30,6 +30,12 @@ type Server struct {
 	connections map[*connection]bool
 	broadcast   chan MetricsUpdate
 	
+	// Task events for live feed
+	taskEvents     chan TaskEvent
+	recentEvents   []TaskEvent
+	eventsMu       sync.RWMutex
+	maxRecentEvents int
+	
 	// Shutdown
 	done chan struct{}
 }
@@ -88,6 +94,15 @@ type ThroughputDataPoint struct {
 	Throughput float64 `json:"throughput"`
 }
 
+// TaskEvent represents a task completion event for the activity feed
+type TaskEvent struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Status    string `json:"status"` // "success" or "failed"
+	Duration  string `json:"duration"`
+	Timestamp string `json:"timestamp"`
+}
+
 // TaskDetail represents detailed information about a task
 type TaskDetail struct {
 	ID          string                 `json:"id"`
@@ -111,13 +126,16 @@ func NewServer(cfg Config) *Server {
 	}
 
 	return &Server{
-		metrics:     cfg.Metrics,
-		queue:       cfg.Queue,
-		storage:     cfg.Storage,
-		addr:        cfg.Addr,
-		connections: make(map[*connection]bool),
-		broadcast:   make(chan MetricsUpdate, 100),
-		done:        make(chan struct{}),
+		metrics:        cfg.Metrics,
+		queue:          cfg.Queue,
+		storage:        cfg.Storage,
+		addr:           cfg.Addr,
+		connections:    make(map[*connection]bool),
+		broadcast:      make(chan MetricsUpdate, 100),
+		taskEvents:     make(chan TaskEvent, 100),
+		recentEvents:   make([]TaskEvent, 0, 20),
+		maxRecentEvents: 20,
+		done:           make(chan struct{}),
 	}
 }
 
@@ -245,11 +263,37 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Send initial metrics
 	initialMetrics := s.collectMetrics()
 	data, _ := json.Marshal(initialMetrics)
-	fmt.Fprintf(w, "data: %s\n\n", data)
+	fmt.Fprintf(w, "event: metrics\ndata: %s\n\n", data)
+	flusher.Flush()
+	
+	// Send recent task events
+	recentEvents := s.getRecentEvents()
+	for _, event := range recentEvents {
+		eventData, _ := json.Marshal(event)
+		fmt.Fprintf(w, "event: task\ndata: %s\n\n", eventData)
+	}
 	flusher.Flush()
 	
 	// Listen for updates or client disconnect
 	ctx := r.Context()
+	taskEventCh := make(chan TaskEvent, 10)
+	
+	// Subscribe to task events
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event := <-s.taskEvents:
+				select {
+				case taskEventCh <- event:
+				default:
+					// Buffer full, skip
+				}
+			}
+		}
+	}()
+	
 	for {
 		select {
 		case <-ctx.Done():
@@ -264,7 +308,14 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			fmt.Fprintf(w, "event: metrics\ndata: %s\n\n", data)
+			flusher.Flush()
+		case event := <-taskEventCh:
+			data, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "event: task\ndata: %s\n\n", data)
 			flusher.Flush()
 		}
 	}
@@ -469,6 +520,44 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(health); err != nil {
 		log.Printf("[Dashboard] Failed to encode health response: %v", err)
 	}
+}
+
+// BroadcastTaskEvent broadcasts a task completion event to all connected clients
+// This should be called by the worker when a task completes or fails
+func (s *Server) BroadcastTaskEvent(taskID, taskType, status string, duration time.Duration) {
+	event := TaskEvent{
+		ID:        taskID,
+		Type:      taskType,
+		Status:    status,
+		Duration:  duration.Round(time.Millisecond).String(),
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+	
+	// Add to recent events
+	s.eventsMu.Lock()
+	s.recentEvents = append(s.recentEvents, event)
+	if len(s.recentEvents) > s.maxRecentEvents {
+		s.recentEvents = s.recentEvents[1:]
+	}
+	s.eventsMu.Unlock()
+	
+	// Broadcast to all connections
+	select {
+	case s.taskEvents <- event:
+	default:
+		// Channel full, skip this event
+	}
+}
+
+// getRecentEvents returns the list of recent task events
+func (s *Server) getRecentEvents() []TaskEvent {
+	s.eventsMu.RLock()
+	defer s.eventsMu.RUnlock()
+	
+	// Return a copy
+	events := make([]TaskEvent, len(s.recentEvents))
+	copy(events, s.recentEvents)
+	return events
 }
 
 // collectMetrics gathers current metrics for dashboard

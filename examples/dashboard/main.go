@@ -131,26 +131,7 @@ func main() {
 	// Start worker pool with 5 workers
 	log.Println("Starting worker pool with 5 workers...")
 	
-	workers := make([]*worker.Worker, 5)
-	for i := 0; i < 5; i++ {
-		w := worker.NewWorker(q, store, registry, worker.Config{
-			ID:           fmt.Sprintf("worker-%d", i+1),
-			PollInterval: 100 * time.Millisecond,
-		})
-		
-		// Register worker with metrics
-		metrics.RegisterWorker(w.ID())
-		
-		// Start worker with instrumentation
-		instrumentedWorker := worker.NewInstrumentedWorker(w, metrics)
-		if err := instrumentedWorker.Start(ctx); err != nil {
-			log.Fatalf("Failed to start worker %d: %v", i+1, err)
-		}
-		
-		workers[i] = w
-	}
-
-	// Start dashboard server
+	// Start dashboard server first so workers can broadcast to it
 	log.Println("Starting dashboard server on http://localhost:8080")
 	dashboard := web.NewServer(web.Config{
 		Addr:    ":8080",
@@ -164,6 +145,28 @@ func main() {
 	go func() {
 		serverErrChan <- dashboard.Start()
 	}()
+	
+	// Give server a moment to start
+	time.Sleep(500 * time.Millisecond)
+	
+	workers := make([]*worker.Worker, 5)
+	for i := 0; i < 5; i++ {
+		w := worker.NewWorker(q, store, registry, worker.Config{
+			ID:           fmt.Sprintf("worker-%d", i+1),
+			PollInterval: 100 * time.Millisecond,
+		})
+		
+		// Register worker with metrics
+		metrics.RegisterWorker(w.ID())
+		
+		// Start worker with instrumentation and task event broadcasting
+		instrumentedWorker := worker.NewInstrumentedWorker(w, metrics)
+		
+		// Wrap to broadcast task events to dashboard
+		go startWorkerWithEventBroadcast(ctx, instrumentedWorker, dashboard)
+		
+		workers[i] = w
+	}
 
 	// Start task generator to simulate realistic workload
 	go generateTasks(ctx, q, metrics)
@@ -333,5 +336,71 @@ func generateSingleTask(ctx context.Context, q queue.Queue, metrics *monitoring.
 	// Log only critical tasks to reduce noise
 	if priority == task.PriorityCritical {
 		log.Printf("Enqueued CRITICAL task: %s (type: %s, id: %s)", t.Type, t.Type, t.ID)
+	}
+}
+
+// startWorkerWithEventBroadcast starts a worker and monitors its task execution,
+// broadcasting task completion events to the dashboard for the live activity feed
+func startWorkerWithEventBroadcast(ctx context.Context, iw *worker.InstrumentedWorker, dashboard *web.Server) {
+	// Start the worker
+	if err := iw.Start(ctx); err != nil {
+		log.Printf("Failed to start worker: %v", err)
+		return
+	}
+	
+	// Monitor worker stats and broadcast task events
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	
+	lastProcessed := int64(0)
+	lastFailed := int64(0)
+	
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			processed, failed, _ := iw.Stats()
+			
+			// Detect completed tasks
+			if processed > lastProcessed {
+				newCompleted := processed - lastProcessed
+				for i := int64(0); i < newCompleted; i++ {
+					// Broadcast success event
+					// Note: In production, you'd get actual task details from the worker
+					// For this demo, we'll generate representative data
+					taskTypes := []string{"process_image", "send_email", "generate_report", "data_export", "backup_database"}
+					taskType := taskTypes[rand.Intn(len(taskTypes))]
+					duration := time.Duration(rand.Intn(800)+200) * time.Millisecond
+					
+					dashboard.BroadcastTaskEvent(
+						fmt.Sprintf("task-%d", time.Now().UnixNano()),
+						taskType,
+						"success",
+						duration,
+					)
+				}
+				lastProcessed = processed
+			}
+			
+			// Detect failed tasks
+			if failed > lastFailed {
+				newFailed := failed - lastFailed
+				for i := int64(0); i < newFailed; i++ {
+					// Broadcast failure event
+					taskTypes := []string{"process_image", "send_email", "generate_report", "data_export", "backup_database"}
+					taskType := taskTypes[rand.Intn(len(taskTypes))]
+					duration := time.Duration(rand.Intn(500)+100) * time.Millisecond
+					
+					dashboard.BroadcastTaskEvent(
+						fmt.Sprintf("task-%d", time.Now().UnixNano()),
+						taskType,
+						"failed",
+						duration,
+					)
+				}
+				lastFailed = failed
+			}
+		}
 	}
 }
