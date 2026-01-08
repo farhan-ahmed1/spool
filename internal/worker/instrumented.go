@@ -9,17 +9,18 @@ import (
 
 // InstrumentedWorker wraps a Worker with metrics instrumentation
 type InstrumentedWorker struct {
-	worker         *Worker
-	metrics        *monitoring.Metrics
-	lastProcessed  int64
+	worker            *Worker
+	metrics           *monitoring.Metrics
+	lastProcessed     int64
+	lastFailed        int64
 	stopStatsSyncChan chan struct{}
 }
 
 // NewInstrumentedWorker creates a new instrumented worker
 func NewInstrumentedWorker(w *Worker, m *monitoring.Metrics) *InstrumentedWorker {
 	return &InstrumentedWorker{
-		worker:         w,
-		metrics:        m,
+		worker:            w,
+		metrics:           m,
 		stopStatsSyncChan: make(chan struct{}),
 	}
 }
@@ -48,16 +49,34 @@ func (iw *InstrumentedWorker) syncStatsLoop(ctx context.Context) {
 		case <-iw.stopStatsSyncChan:
 			return
 		case <-ticker.C:
-			processed, _, _ := iw.worker.Stats()
+			processed, failed, _ := iw.worker.Stats()
 			
-			// Calculate how many tasks were completed since last sync
-			newTasks := processed - iw.lastProcessed
-			if newTasks > 0 {
-				// Record each completed task (approximate duration)
-				for i := int64(0); i < newTasks; i++ {
-					iw.metrics.RecordTaskCompleted(100 * time.Millisecond)
+			// Check if worker is idle or busy
+			if iw.worker.IsRunning() {
+				// If tasks were completed since last sync, worker was busy
+				newTasks := processed - iw.lastProcessed
+				newFailures := failed - iw.lastFailed
+				
+				if newTasks > 0 || newFailures > 0 {
+					// Record completed tasks with metrics
+					for i := int64(0); i < newTasks; i++ {
+						duration := 100 * time.Millisecond // Approximate
+						iw.metrics.RecordTaskCompleted(duration)
+						iw.metrics.RecordWorkerTaskCompleted(iw.worker.ID(), duration, true)
+					}
+					
+					// Record failed tasks
+					for i := int64(0); i < newFailures; i++ {
+						duration := 50 * time.Millisecond // Approximate
+						iw.metrics.RecordWorkerTaskCompleted(iw.worker.ID(), duration, false)
+					}
+					
+					iw.lastProcessed = processed
+					iw.lastFailed = failed
+					
+					// After processing tasks, mark as idle
+					iw.metrics.MarkWorkerIdle(iw.worker.ID())
 				}
-				iw.lastProcessed = processed
 			}
 		}
 	}

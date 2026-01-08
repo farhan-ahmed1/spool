@@ -26,6 +26,10 @@ type Metrics struct {
 	busyWorkers     int32
 	workerLastIdle  map[string]time.Time
 	workerStartTime map[string]time.Time
+	
+	// Per-worker detailed metrics
+	workerStats     map[string]*WorkerStats
+	workerCurrentTask map[string]*TaskInfo
 
 	// Task metrics
 	tasksProcessed  int64
@@ -60,6 +64,27 @@ type ThroughputSample struct {
 	Timestamp   time.Time
 	TasksPerSec float64
 	WindowSize  time.Duration
+}
+
+// WorkerStats holds detailed statistics for a single worker
+type WorkerStats struct {
+	ID                string
+	State             string // "idle" or "busy"
+	TasksCompleted    int64
+	TasksFailed       int64
+	TotalIdleTime     time.Duration
+	TotalBusyTime     time.Duration
+	LastIdleStart     time.Time
+	LastBusyStart     time.Time
+	ProcessingTimes   []time.Duration
+	StartTime         time.Time
+}
+
+// TaskInfo holds information about a task being processed
+type TaskInfo struct {
+	ID        string
+	Type      string
+	StartTime time.Time
 }
 
 // MetricsSnapshot provides a point-in-time view of all metrics
@@ -106,6 +131,8 @@ func NewMetrics(q queue.Queue) *Metrics {
 		lastSampleTime:    now,
 		workerLastIdle:    make(map[string]time.Time),
 		workerStartTime:   make(map[string]time.Time),
+		workerStats:       make(map[string]*WorkerStats),
+		workerCurrentTask: make(map[string]*TaskInfo),
 		queueDepthSeries:  make([]QueueDepthSnapshot, 0, 100),
 		throughputSamples: make([]ThroughputSample, 0, 100),
 		processingTimes:   make([]time.Duration, 0, 1000),
@@ -191,6 +218,19 @@ func (m *Metrics) RegisterWorker(workerID string) {
 	atomic.AddInt32(&m.idleWorkers, 1)
 
 	now := time.Now()
+	
+	// Initialize worker stats
+	m.workerStats[workerID] = &WorkerStats{
+		ID:                workerID,
+		State:             "idle",
+		TasksCompleted:    0,
+		TasksFailed:       0,
+		TotalIdleTime:     0,
+		TotalBusyTime:     0,
+		LastIdleStart:     now,
+		StartTime:         now,
+		ProcessingTimes:   make([]time.Duration, 0, 100),
+	}
 	m.workerLastIdle[workerID] = now
 	m.workerStartTime[workerID] = now
 }
@@ -212,6 +252,8 @@ func (m *Metrics) UnregisterWorker(workerID string) {
 
 	delete(m.workerLastIdle, workerID)
 	delete(m.workerStartTime, workerID)
+	delete(m.workerStats, workerID)
+	delete(m.workerCurrentTask, workerID)
 }
 
 // MarkWorkerBusy marks a worker as processing a task
@@ -220,9 +262,30 @@ func (m *Metrics) MarkWorkerBusy(workerID string) {
 	defer m.mu.Unlock()
 
 	if _, wasIdle := m.workerLastIdle[workerID]; wasIdle {
+		// Update idle time
+		if stats, exists := m.workerStats[workerID]; exists {
+			stats.TotalIdleTime += time.Since(stats.LastIdleStart)
+			stats.State = "busy"
+			stats.LastBusyStart = time.Now()
+		}
+		
 		delete(m.workerLastIdle, workerID)
 		atomic.AddInt32(&m.idleWorkers, -1)
 		atomic.AddInt32(&m.busyWorkers, 1)
+	}
+}
+
+// MarkWorkerBusyWithTask marks a worker as processing a specific task
+func (m *Metrics) MarkWorkerBusyWithTask(workerID string, taskID string, taskType string) {
+	m.MarkWorkerBusy(workerID)
+	
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	m.workerCurrentTask[workerID] = &TaskInfo{
+		ID:        taskID,
+		Type:      taskType,
+		StartTime: time.Now(),
 	}
 }
 
@@ -232,9 +295,41 @@ func (m *Metrics) MarkWorkerIdle(workerID string) {
 	defer m.mu.Unlock()
 
 	if _, alreadyIdle := m.workerLastIdle[workerID]; !alreadyIdle {
-		m.workerLastIdle[workerID] = time.Now()
+		now := time.Now()
+		m.workerLastIdle[workerID] = now
+		
+		// Update busy time and clear current task
+		if stats, exists := m.workerStats[workerID]; exists {
+			stats.TotalBusyTime += time.Since(stats.LastBusyStart)
+			stats.State = "idle"
+			stats.LastIdleStart = now
+		}
+		
+		// Clear current task
+		delete(m.workerCurrentTask, workerID)
+		
 		atomic.AddInt32(&m.busyWorkers, -1)
 		atomic.AddInt32(&m.idleWorkers, 1)
+	}
+}
+
+// RecordWorkerTaskCompleted records a completed task for a specific worker
+func (m *Metrics) RecordWorkerTaskCompleted(workerID string, duration time.Duration, success bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	if stats, exists := m.workerStats[workerID]; exists {
+		if success {
+			stats.TasksCompleted++
+		} else {
+			stats.TasksFailed++
+		}
+		
+		stats.ProcessingTimes = append(stats.ProcessingTimes, duration)
+		// Keep only last 100 samples per worker
+		if len(stats.ProcessingTimes) > 100 {
+			stats.ProcessingTimes = stats.ProcessingTimes[1:]
+		}
 	}
 }
 
@@ -261,6 +356,45 @@ func (m *Metrics) GetOldestIdleTime() time.Duration {
 		return 0
 	}
 	return time.Since(oldest)
+}
+
+// GetWorkerDetails returns detailed stats for a specific worker
+func (m *Metrics) GetWorkerDetails(workerID string) (*WorkerStats, *TaskInfo, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	stats, exists := m.workerStats[workerID]
+	if !exists {
+		return nil, nil, false
+	}
+	
+	// Make a copy to avoid data races
+	statsCopy := *stats
+	
+	// Get current task if any
+	var taskCopy *TaskInfo
+	if task, hasTask := m.workerCurrentTask[workerID]; hasTask {
+		taskCopy = &TaskInfo{
+			ID:        task.ID,
+			Type:      task.Type,
+			StartTime: task.StartTime,
+		}
+	}
+	
+	return &statsCopy, taskCopy, true
+}
+
+// GetAllWorkerDetails returns a list of all workers with their details
+func (m *Metrics) GetAllWorkerDetails() []WorkerStats {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	workers := make([]WorkerStats, 0, len(m.workerStats))
+	for _, stats := range m.workerStats {
+		workers = append(workers, *stats)
+	}
+	
+	return workers
 }
 
 // RecordTaskEnqueued increments the enqueued task counter
@@ -454,6 +588,8 @@ func (m *Metrics) Reset() {
 
 	m.workerLastIdle = make(map[string]time.Time)
 	m.workerStartTime = make(map[string]time.Time)
+	m.workerStats = make(map[string]*WorkerStats)
+	m.workerCurrentTask = make(map[string]*TaskInfo)
 	m.queueDepthSeries = make([]QueueDepthSnapshot, 0, 100)
 	m.throughputSamples = make([]ThroughputSample, 0, 100)
 	m.processingTimes = make([]time.Duration, 0, 1000)

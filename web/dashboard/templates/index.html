@@ -25,6 +25,25 @@
             --text-secondary: #6b7280;
             --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --chart-grid-color: rgba(0, 0, 0, 0.05);
+            --chart-text-color: #666;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #3b82f6;
+            --success-color: #10b981;
+            --danger-color: #f87171;
+            --warning-color: #fbbf24;
+            --secondary-color: #9ca3af;
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --border-color: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+            --chart-grid-color: rgba(255, 255, 255, 0.1);
+            --chart-text-color: #9ca3af;
         }
 
         body {
@@ -32,6 +51,7 @@
             background-color: var(--bg-color);
             color: var(--text-primary);
             line-height: 1.6;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .container {
@@ -48,6 +68,16 @@
             box-shadow: var(--shadow-lg);
         }
 
+        header .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        header .header-text {
+            flex: 1;
+        }
+
         header h1 {
             font-size: 2rem;
             font-weight: 700;
@@ -57,6 +87,32 @@
         header p {
             opacity: 0.9;
             font-size: 0.95rem;
+        }
+
+        .theme-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.95);
         }
 
         .status-badge {
@@ -90,7 +146,7 @@
             border-radius: 12px;
             padding: 24px;
             box-shadow: var(--shadow);
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease, color 0.3s ease;
         }
 
         .card:hover {
@@ -145,6 +201,7 @@
             padding: 24px;
             box-shadow: var(--shadow);
             margin-bottom: 30px;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .chart-title {
@@ -489,6 +546,180 @@
             }
         }
 
+        /* Worker Details Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-section {
+            margin-bottom: 25px;
+        }
+
+        .modal-section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .modal-info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .modal-info-item {
+            padding: 12px;
+            background: var(--bg-color);
+            border-radius: 8px;
+        }
+
+        .modal-info-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .modal-info-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .worker-item:hover {
+            transform: scale(1.02);
+            box-shadow: var(--shadow);
+            cursor: pointer;
+        }
+
+        .current-task-card {
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .current-task-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .current-task-type {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .current-task-id {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-family: monospace;
+            margin-bottom: 8px;
+        }
+
+        .current-task-elapsed {
+            display: inline-block;
+            padding: 4px 12px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .worker-state-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .worker-state-badge.busy {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warning-color);
+        }
+
+        .worker-state-badge.idle {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success-color);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -505,21 +736,33 @@
             .card-value {
                 font-size: 2rem;
             }
+            
+            .modal-info-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <header>
         <div class="container">
-            <h1>
-                Spool Dashboard
-                <span id="queueHealth" class="status-badge status-healthy">Healthy</span>
-            </h1>
-            <p>Real-time monitoring for your distributed task queue system</p>
-            <p style="font-size: 0.875rem; margin-top: 8px;">
-                Uptime: <strong id="uptime">--</strong> | 
-                Last Updated: <strong id="lastUpdated">--</strong>
-            </p>
+            <div class="header-content">
+                <div class="header-text">
+                    <h1>
+                        Spool Dashboard
+                        <span id="queueHealth" class="status-badge status-healthy">Healthy</span>
+                    </h1>
+                    <p>Real-time monitoring for your distributed task queue system</p>
+                    <p style="font-size: 0.875rem; margin-top: 8px;">
+                        Uptime: <strong id="uptime">--</strong> | 
+                        Last Updated: <strong id="lastUpdated">--</strong>
+                    </p>
+                </div>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="themeIcon">🌙</span>
+                    <span id="themeText">Dark</span>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -689,6 +932,72 @@
     </div>
 
     <script>
+        // Theme Management
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            updateThemeButton(newTheme);
+            updateChartsTheme(newTheme);
+        }
+
+        function updateThemeButton(theme) {
+            const icon = document.getElementById('themeIcon');
+            const text = document.getElementById('themeText');
+            
+            if (theme === 'dark') {
+                icon.textContent = '☀️';
+                text.textContent = 'Light';
+            } else {
+                icon.textContent = '🌙';
+                text.textContent = 'Dark';
+            }
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            
+            document.documentElement.setAttribute('data-theme', theme);
+            updateThemeButton(theme);
+        }
+
+        function updateChartsTheme(theme) {
+            if (!queueChart || !throughputChart || !taskRatioChart) return;
+            
+            const gridColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--chart-grid-color').trim();
+            const textColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--chart-text-color').trim();
+            
+            // Update queue chart
+            queueChart.options.scales.y.grid.color = gridColor;
+            queueChart.options.scales.y.ticks.color = textColor;
+            queueChart.options.scales.x.ticks.color = textColor;
+            queueChart.update();
+            
+            // Update throughput chart
+            throughputChart.options.scales.y.grid.color = gridColor;
+            throughputChart.options.scales.y.ticks.color = textColor;
+            throughputChart.options.scales.x.ticks.color = textColor;
+            throughputChart.update();
+            
+            // Update task ratio chart (legend text color)
+            taskRatioChart.options.plugins.legend.labels.color = textColor;
+            taskRatioChart.update();
+            
+            // Update heatmap
+            const canvas = document.getElementById('heatmapChart');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                updateHeatmap(ctx);
+            }
+        }
+
         // Global state
         let queueChart = null;
         let throughputChart = null;
@@ -722,6 +1031,11 @@
 
         // Initialize Chart.js
         function initChart() {
+            const gridColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--chart-grid-color').trim();
+            const textColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--chart-text-color').trim();
+
             // Queue Depth Chart
             const ctxQueue = document.getElementById('queueChart').getContext('2d');
             queueChart = new Chart(ctxQueue, {
@@ -754,10 +1068,11 @@
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                precision: 0
+                                precision: 0,
+                                color: textColor
                             },
                             grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
+                                color: gridColor
                             }
                         },
                         x: {
@@ -765,7 +1080,8 @@
                                 display: false
                             },
                             ticks: {
-                                maxTicksLimit: 10
+                                maxTicksLimit: 10,
+                                color: textColor
                             }
                         }
                     }
@@ -811,10 +1127,11 @@
                             ticks: {
                                 callback: function(value) {
                                     return value.toFixed(1);
-                                }
+                                },
+                                color: textColor
                             },
                             grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
+                                color: gridColor
                             }
                         },
                         x: {
@@ -822,7 +1139,8 @@
                                 display: false
                             },
                             ticks: {
-                                maxTicksLimit: 10
+                                maxTicksLimit: 10,
+                                color: textColor
                             }
                         }
                     }
@@ -843,7 +1161,8 @@
                             'rgb(245, 158, 11)'
                         ],
                         borderWidth: 2,
-                        borderColor: '#ffffff'
+                        borderColor: getComputedStyle(document.documentElement)
+                            .getPropertyValue('--card-bg').trim()
                     }]
                 },
                 options: {
@@ -856,7 +1175,8 @@
                                 padding: 15,
                                 font: {
                                     size: 13
-                                }
+                                },
+                                color: textColor
                             }
                         },
                         tooltip: {
@@ -903,6 +1223,9 @@
             // Get max value for normalization
             const maxValue = Math.max(...heatmapData, 1);
 
+            // Check if dark mode is active
+            const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+
             // Draw cells
             for (let i = 0; i < 24; i++) {
                 const intensity = heatmapData[i] / maxValue;
@@ -912,24 +1235,40 @@
                 const x = col * cellWidth;
                 const y = row * cellHeight;
 
-                // Color based on intensity (blue gradient)
+                // Color based on intensity (blue gradient) - adapt to theme
                 let color;
-                if (intensity < 0.25) {
-                    color = `rgba(219, 234, 254, 0.5)`;
-                } else if (intensity < 0.5) {
-                    color = `rgba(147, 197, 253, 0.7)`;
-                } else if (intensity < 0.75) {
-                    color = `rgba(59, 130, 246, 0.85)`;
+                if (isDarkMode) {
+                    if (intensity < 0.25) {
+                        color = `rgba(30, 58, 138, 0.5)`;
+                    } else if (intensity < 0.5) {
+                        color = `rgba(37, 99, 235, 0.6)`;
+                    } else if (intensity < 0.75) {
+                        color = `rgba(59, 130, 246, 0.8)`;
+                    } else {
+                        color = `rgba(96, 165, 250, 1)`;
+                    }
                 } else {
-                    color = `rgba(37, 99, 235, 1)`;
+                    if (intensity < 0.25) {
+                        color = `rgba(219, 234, 254, 0.5)`;
+                    } else if (intensity < 0.5) {
+                        color = `rgba(147, 197, 253, 0.7)`;
+                    } else if (intensity < 0.75) {
+                        color = `rgba(59, 130, 246, 0.85)`;
+                    } else {
+                        color = `rgba(37, 99, 235, 1)`;
+                    }
                 }
 
                 ctx.fillStyle = color;
                 ctx.fillRect(x + padding, y + padding, cellWidth - padding * 2, cellHeight - padding * 2);
 
-                // Add hour label with better sizing
+                // Add hour label with better sizing - adapt text color to theme
                 const fontSize = Math.min(cellWidth / 4, 16);
-                ctx.fillStyle = intensity > 0.5 ? '#ffffff' : '#374151';
+                if (isDarkMode) {
+                    ctx.fillStyle = intensity > 0.4 ? '#ffffff' : '#9ca3af';
+                } else {
+                    ctx.fillStyle = intensity > 0.5 ? '#ffffff' : '#374151';
+                }
                 ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -1021,10 +1360,10 @@
         // Update workers visualization
         function updateWorkersList(metrics) {
             const container = document.getElementById('workersList');
-            if (metrics.activeWorkers === 0) {
+            if (!metrics.workers || metrics.workers.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state" style="grid-column: 1/-1;">
-                        <div class="empty-state-icon"></div>
+                        <div class="empty-state-icon">👷</div>
                         <p>No active workers</p>
                     </div>
                 `;
@@ -1033,26 +1372,90 @@
 
             let html = '';
             
-            // Generate worker items (mock data based on counts)
-            for (let i = 0; i < metrics.busyWorkers; i++) {
+            // Use real worker data from metrics
+            metrics.workers.forEach(worker => {
+                const stateClass = worker.state === 'busy' ? 'busy' : 'idle';
+                const statusText = worker.state === 'busy' ? 'BUSY' : 'IDLE';
+                const statusClass = worker.state === 'busy' ? 'status-busy' : 'status-idle';
+                
                 html += `
-                    <div class="worker-item busy">
-                        <div class="worker-id">worker-${i + 1}</div>
-                        <div class="worker-status status-busy">● BUSY</div>
+                    <div class="worker-item ${stateClass}" onclick="showWorkerDetails('${worker.id}')">
+                        <div class="worker-id">${worker.id}</div>
+                        <div class="worker-status ${statusClass}">● ${statusText}</div>
                     </div>
                 `;
-            }
-            for (let i = 0; i < metrics.idleWorkers; i++) {
-                html += `
-                    <div class="worker-item idle">
-                        <div class="worker-id">worker-${metrics.busyWorkers + i + 1}</div>
-                        <div class="worker-status status-idle">● IDLE</div>
-                    </div>
-                `;
-            }
+            });
             
             container.innerHTML = html;
         }
+
+        // Show worker details modal
+        function showWorkerDetails(workerId) {
+            fetch(`/api/workers/${workerId}`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error('Worker not found');
+                    }
+                    return res.json();
+                })
+                .then(worker => {
+                    // Update modal title
+                    document.getElementById('workerModalTitle').textContent = `Worker: ${worker.id}`;
+                    
+                    // Update state badge
+                    const stateClass = worker.state === 'busy' ? 'busy' : 'idle';
+                    const stateText = worker.state === 'busy' ? 'BUSY' : 'IDLE';
+                    document.getElementById('workerStateSection').innerHTML = `
+                        <span class="worker-state-badge ${stateClass}">${stateText}</span>
+                    `;
+                    
+                    // Update statistics
+                    document.getElementById('workerTasksCompleted').textContent = worker.tasksCompleted.toLocaleString();
+                    document.getElementById('workerTasksFailed').textContent = worker.tasksFailed.toLocaleString();
+                    document.getElementById('workerAvgTime').textContent = worker.avgProcessingTime;
+                    document.getElementById('workerIdleTime').textContent = worker.totalIdleTime;
+                    document.getElementById('workerBusyTime').textContent = worker.totalBusyTime;
+                    document.getElementById('workerUptime').textContent = worker.uptime;
+                    
+                    // Update current task section
+                    const currentTaskSection = document.getElementById('currentTaskSection');
+                    if (worker.currentTask) {
+                        currentTaskSection.style.display = 'block';
+                        document.getElementById('currentTaskType').textContent = worker.currentTask.type;
+                        document.getElementById('currentTaskId').textContent = worker.currentTask.id;
+                        document.getElementById('currentTaskElapsed').textContent = worker.currentTask.elapsedTime;
+                    } else {
+                        currentTaskSection.style.display = 'none';
+                    }
+                    
+                    // Show modal
+                    document.getElementById('workerModal').classList.add('active');
+                })
+                .catch(err => {
+                    console.error('Failed to fetch worker details:', err);
+                    alert('Failed to load worker details');
+                });
+        }
+
+        // Close worker modal
+        function closeWorkerModal() {
+            document.getElementById('workerModal').classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('workerModal');
+            if (event.target === modal) {
+                closeWorkerModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeWorkerModal();
+            }
+        });
 
         // Fetch DLQ tasks
         function fetchDLQTasks() {
@@ -1295,6 +1698,7 @@
 
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
+            initTheme();
             initChart();
             connectWebSocket();
             fetchDLQTasks();
@@ -1303,5 +1707,59 @@
             setInterval(fetchRecentTasks, 5000);
         });
     </script>
+
+    <!-- Worker Details Modal -->
+    <div id="workerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="workerModalTitle">Worker Details</h2>
+                <button class="modal-close" onclick="closeWorkerModal()">&times;</button>
+            </div>
+            
+            <div class="modal-section">
+                <div id="workerStateSection"></div>
+            </div>
+            
+            <div class="modal-section">
+                <h3 class="modal-section-title">Statistics</h3>
+                <div class="modal-info-grid">
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Tasks Completed</div>
+                        <div class="modal-info-value" id="workerTasksCompleted">--</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Tasks Failed</div>
+                        <div class="modal-info-value" id="workerTasksFailed">--</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Avg Processing Time</div>
+                        <div class="modal-info-value" id="workerAvgTime">--</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Total Idle Time</div>
+                        <div class="modal-info-value" id="workerIdleTime">--</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Total Busy Time</div>
+                        <div class="modal-info-value" id="workerBusyTime">--</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Uptime</div>
+                        <div class="modal-info-value" id="workerUptime">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-section" id="currentTaskSection" style="display: none;">
+                <h3 class="modal-section-title">Current Task</h3>
+                <div class="current-task-card">
+                    <div class="current-task-label">Processing</div>
+                    <div class="current-task-type" id="currentTaskType">--</div>
+                    <div class="current-task-id" id="currentTaskId">--</div>
+                    <span class="current-task-elapsed" id="currentTaskElapsed">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

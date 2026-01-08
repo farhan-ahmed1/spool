@@ -71,20 +71,20 @@ func main() {
 
 	// Create task registry
 	registry := task.NewRegistry()
-	
+
 	// Register a CPU-intensive task
 	registry.Register("heavy_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		var data map[string]interface{}
 		if err := json.Unmarshal(payload, &data); err != nil {
 			return nil, err
 		}
-		
+
 		id := data["id"]
 		log.Printf("  [Task %v] Processing...", id)
-		
+
 		// Simulate CPU-intensive work
 		time.Sleep(500 * time.Millisecond)
-		
+
 		log.Printf("  [Task %v] Completed", id)
 		return map[string]interface{}{"result": "processed", "id": id}, nil
 	})
@@ -159,11 +159,11 @@ func main() {
 		// Final stats
 		log.Println("=== Final Statistics ===")
 		printFinalStats(metrics, scaler)
-		
+
 		// Wait a bit more to show continued monitoring, then auto-shutdown
 		log.Println("\n⏱️  Continuing to monitor for 10 more seconds... (Press Ctrl+C to stop)")
 		time.Sleep(10 * time.Second)
-		
+
 		// Trigger shutdown
 		sigChan <- os.Interrupt
 	}()
@@ -186,8 +186,9 @@ func monitorMetrics(ctx context.Context, metrics *monitoring.Metrics, pool *work
 		case <-ticker.C:
 			snapshot := metrics.Snapshot()
 			poolStats := pool.GetStats()
+			scalerStats := scaler.GetStats()
 
-			fmt.Printf("\r[%s] Workers: %d (idle: %d, busy: %d) | Queue: %d | Processed: %d | Throughput: %.1f tps     \n",
+			fmt.Printf("\r[%s] Workers: %d (idle: %d, busy: %d) | Queue: %d | Processed: %d | Throughput: %.1f tps | Scaled: ↑%d ↓%d     \n",
 				time.Now().Format("15:04:05"),
 				poolStats["total_workers"],
 				poolStats["idle_workers"],
@@ -195,6 +196,8 @@ func monitorMetrics(ctx context.Context, metrics *monitoring.Metrics, pool *work
 				snapshot.QueueDepth,
 				snapshot.TasksProcessed,
 				snapshot.CurrentThroughput,
+				scalerStats["scale_up_count"],
+				scalerStats["scale_down_count"],
 			)
 		}
 	}

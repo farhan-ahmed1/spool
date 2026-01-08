@@ -65,6 +65,7 @@ type MetricsUpdate struct {
 	ActiveWorkers     int32               `json:"activeWorkers"`
 	IdleWorkers       int32               `json:"idleWorkers"`
 	BusyWorkers       int32               `json:"busyWorkers"`
+	Workers           []WorkerSummary     `json:"workers"`
 	WorkerUtilization float64             `json:"workerUtilization"`
 	TasksProcessed    int64               `json:"tasksProcessed"`
 	TasksFailed       int64               `json:"tasksFailed"`
@@ -152,6 +153,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/tasks", s.handleTasks)
 	mux.HandleFunc("/api/tasks/", s.handleTaskDetail)
 	mux.HandleFunc("/api/dlq", s.handleDLQ)
+	mux.HandleFunc("/api/workers", s.handleWorkers)
+	mux.HandleFunc("/api/workers/", s.handleWorkerDetail)
 	
 	// Health check
 	mux.HandleFunc("/health", s.handleHealth)
@@ -500,6 +503,109 @@ func (s *Server) handleDLQ(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// WorkerDetailResponse represents the response for worker details
+type WorkerDetailResponse struct {
+	ID                string  `json:"id"`
+	State             string  `json:"state"`
+	TasksCompleted    int64   `json:"tasksCompleted"`
+	TasksFailed       int64   `json:"tasksFailed"`
+	TotalIdleTime     string  `json:"totalIdleTime"`
+	TotalBusyTime     string  `json:"totalBusyTime"`
+	AvgProcessingTime string  `json:"avgProcessingTime"`
+	StartTime         string  `json:"startTime"`
+	Uptime            string  `json:"uptime"`
+	CurrentTask       *struct {
+		ID          string `json:"id"`
+		Type        string `json:"type"`
+		StartTime   string `json:"startTime"`
+		ElapsedTime string `json:"elapsedTime"`
+	} `json:"currentTask,omitempty"`
+}
+
+// WorkerSummary represents a summary of a worker for the workers list
+type WorkerSummary struct {
+	ID             string `json:"id"`
+	State          string `json:"state"`
+	TasksCompleted int64  `json:"tasksCompleted"`
+}
+
+// handleWorkers returns a list of all active workers
+func (s *Server) handleWorkers(w http.ResponseWriter, r *http.Request) {
+	workers := s.metrics.GetAllWorkerDetails()
+	
+	summaries := make([]WorkerSummary, 0, len(workers))
+	for _, worker := range workers {
+		summaries = append(summaries, WorkerSummary{
+			ID:             worker.ID,
+			State:          worker.State,
+			TasksCompleted: worker.TasksCompleted,
+		})
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"workers": summaries,
+		"total":   len(summaries),
+	})
+}
+
+// handleWorkerDetail returns detailed information about a specific worker
+func (s *Server) handleWorkerDetail(w http.ResponseWriter, r *http.Request) {
+	// Extract worker ID from URL path
+	workerID := r.URL.Path[len("/api/workers/"):]
+	if workerID == "" {
+		http.Error(w, "Worker ID required", http.StatusBadRequest)
+		return
+	}
+	
+	stats, currentTask, exists := s.metrics.GetWorkerDetails(workerID)
+	if !exists {
+		http.Error(w, "Worker not found", http.StatusNotFound)
+		return
+	}
+	
+	// Calculate average processing time
+	var avgProcessingTime time.Duration
+	if len(stats.ProcessingTimes) > 0 {
+		var sum time.Duration
+		for _, t := range stats.ProcessingTimes {
+			sum += t
+		}
+		avgProcessingTime = sum / time.Duration(len(stats.ProcessingTimes))
+	}
+	
+	// Build response
+	response := WorkerDetailResponse{
+		ID:                stats.ID,
+		State:             stats.State,
+		TasksCompleted:    stats.TasksCompleted,
+		TasksFailed:       stats.TasksFailed,
+		TotalIdleTime:     stats.TotalIdleTime.Round(time.Second).String(),
+		TotalBusyTime:     stats.TotalBusyTime.Round(time.Second).String(),
+		AvgProcessingTime: avgProcessingTime.Round(time.Millisecond).String(),
+		StartTime:         stats.StartTime.Format(time.RFC3339),
+		Uptime:            time.Since(stats.StartTime).Round(time.Second).String(),
+	}
+	
+	// Add current task if processing one
+	if currentTask != nil {
+		response.CurrentTask = &struct {
+			ID          string `json:"id"`
+			Type        string `json:"type"`
+			StartTime   string `json:"startTime"`
+			ElapsedTime string `json:"elapsedTime"`
+		}{
+			ID:          currentTask.ID,
+			Type:        currentTask.Type,
+			StartTime:   currentTask.StartTime.Format(time.RFC3339),
+			ElapsedTime: time.Since(currentTask.StartTime).Round(time.Millisecond).String(),
+		}
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // handleHealth returns health status
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -607,6 +713,17 @@ func (s *Server) collectMetrics() MetricsUpdate {
 		queueHealth = "unhealthy"
 	}
 	
+	// Get workers list
+	workers := s.metrics.GetAllWorkerDetails()
+	workersList := make([]WorkerSummary, 0, len(workers))
+	for _, worker := range workers {
+		workersList = append(workersList, WorkerSummary{
+			ID:             worker.ID,
+			State:          worker.State,
+			TasksCompleted: worker.TasksCompleted,
+		})
+	}
+	
 	return MetricsUpdate{
 		Timestamp:         time.Now().Format(time.RFC3339),
 		QueueDepth:        snapshot.QueueDepth,
@@ -617,6 +734,7 @@ func (s *Server) collectMetrics() MetricsUpdate {
 		ActiveWorkers:     snapshot.ActiveWorkers,
 		IdleWorkers:       snapshot.IdleWorkers,
 		BusyWorkers:       snapshot.BusyWorkers,
+		Workers:           workersList,
 		WorkerUtilization: utilization,
 		TasksProcessed:    snapshot.TasksProcessed,
 		TasksFailed:       snapshot.TasksFailed,
