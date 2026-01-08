@@ -305,6 +305,36 @@ func (w *Worker) Stop() error {
 	return nil
 }
 
+// Shutdown gracefully stops the worker with a context for timeout
+func (w *Worker) Shutdown(ctx context.Context) error {
+	w.mu.Lock()
+	if !w.running {
+		w.mu.Unlock()
+		return fmt.Errorf("worker %s is not running", w.id)
+	}
+	w.running = false
+	w.mu.Unlock()
+
+	log.Printf("[Worker %s] Shutting down...", w.id)
+	close(w.shutdownChan)
+
+	// Wait for worker to finish with timeout
+	done := make(chan struct{})
+	go func() {
+		w.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Printf("[Worker %s] Shutdown complete", w.id)
+		return nil
+	case <-ctx.Done():
+		log.Printf("[Worker %s] Shutdown timeout", w.id)
+		return ctx.Err()
+	}
+}
+
 // IsRunning returns whether the worker is currently running
 func (w *Worker) IsRunning() bool {
 	w.mu.RLock()
