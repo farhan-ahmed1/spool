@@ -90,29 +90,29 @@
         }
 
         .theme-toggle {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
             cursor: pointer;
-            font-size: 1.2rem;
+            font-size: 0.875rem;
             display: flex;
             align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-            font-weight: 600;
+            gap: 6px;
+            transition: all 0.2s ease;
+            font-weight: 500;
             margin-top: 5px;
+            backdrop-filter: blur(10px);
         }
 
         .theme-toggle:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
         }
 
         .theme-toggle:active {
-            transform: scale(0.95);
+            transform: scale(0.98);
         }
 
         .status-badge {
@@ -356,17 +356,18 @@
 
         .refresh-indicator {
             position: fixed;
-            top: 20px;
+            bottom: 20px;
             right: 20px;
             background: var(--card-bg);
-            padding: 12px 20px;
-            border-radius: 8px;
+            padding: 10px 16px;
+            border-radius: 20px;
             box-shadow: var(--shadow-lg);
             display: flex;
             align-items: center;
             gap: 10px;
             font-size: 0.875rem;
             color: var(--text-secondary);
+            border: 1px solid var(--border-color);
         }
 
         .refresh-dot {
@@ -759,8 +760,7 @@
                     </p>
                 </div>
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
-                    <span id="themeIcon">🌙</span>
-                    <span id="themeText">Dark</span>
+                    <span id="themeText">Dark Mode</span>
                 </button>
             </div>
         </div>
@@ -945,15 +945,12 @@
         }
 
         function updateThemeButton(theme) {
-            const icon = document.getElementById('themeIcon');
             const text = document.getElementById('themeText');
             
             if (theme === 'dark') {
-                icon.textContent = '☀️';
-                text.textContent = 'Light';
+                text.textContent = 'Light Mode';
             } else {
-                icon.textContent = '🌙';
-                text.textContent = 'Dark';
+                text.textContent = 'Dark Mode';
             }
         }
 
