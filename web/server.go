@@ -24,6 +24,7 @@ type Server struct {
 	storage  storage.Storage
 	addr     string
 	server   *http.Server
+	serverMu sync.RWMutex // Protects server field
 	
 	// WebSocket connections
 	mu          sync.RWMutex
@@ -38,6 +39,7 @@ type Server struct {
 	
 	// Shutdown
 	done chan struct{}
+	ready chan struct{} // Signals when server is ready
 }
 
 // connection represents a WebSocket client connection
@@ -137,6 +139,7 @@ func NewServer(cfg Config) *Server {
 		recentEvents:   make([]TaskEvent, 0, 20),
 		maxRecentEvents: 20,
 		done:           make(chan struct{}),
+		ready:          make(chan struct{}),
 	}
 }
 
@@ -163,7 +166,7 @@ func (s *Server) Start() error {
 	fs := http.FileServer(http.Dir("web/dashboard/static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	
-	s.server = &http.Server{
+	server := &http.Server{
 		Addr:         s.addr,
 		Handler:      s.withLogging(s.withCORS(mux)),
 		ReadTimeout:  15 * time.Second,
@@ -171,14 +174,22 @@ func (s *Server) Start() error {
 		IdleTimeout:  60 * time.Second,
 	}
 	
+	// Set server with mutex protection
+	s.serverMu.Lock()
+	s.server = server
+	s.serverMu.Unlock()
+	
 	// Start WebSocket broadcaster
 	go s.broadcastMetrics()
 	
 	// Start metrics update loop
 	go s.updateMetricsLoop()
 	
+	// Signal that server is ready
+	close(s.ready)
+	
 	log.Printf("[Dashboard] Starting server on %s", s.addr)
-	return s.server.ListenAndServe()
+	return server.ListenAndServe()
 }
 
 // Stop gracefully shuts down the server
@@ -193,7 +204,16 @@ func (s *Server) Stop(ctx context.Context) error {
 	s.connections = make(map[*connection]bool)
 	s.mu.Unlock()
 	
-	return s.server.Shutdown(ctx)
+	// Safely access server with mutex
+	s.serverMu.RLock()
+	server := s.server
+	s.serverMu.RUnlock()
+	
+	if server == nil {
+		return nil
+	}
+	
+	return server.Shutdown(ctx)
 }
 
 // handleDashboard serves the main dashboard HTML page

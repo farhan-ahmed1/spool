@@ -468,8 +468,15 @@ func TestServerStartStop(t *testing.T) {
 		errChan <- server.Start()
 	}()
 
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	// Wait for server to be ready
+	select {
+	case <-server.ready:
+		// Server is ready
+	case err := <-errChan:
+		t.Fatalf("Server failed to start: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for server to start")
+	}
 
 	// Stop server
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
