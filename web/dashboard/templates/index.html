@@ -506,10 +506,9 @@
             <div id="tasks-tab" class="tab-content">
                 <div class="chart-title">Recent Tasks</div>
                 <div id="tasksList" class="task-list">
-                    <div class="empty-state">
-                        <div class="empty-state-icon"></div>
-                        <p>No recent tasks to display</p>
-                        <p style="font-size: 0.875rem; margin-top: 8px;">Tasks will appear here as they are processed</p>
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading tasks...</p>
                     </div>
                 </div>
             </div>
@@ -724,6 +723,75 @@
                 });
         }
 
+        // Fetch recent tasks
+        function fetchRecentTasks() {
+            fetch('/api/tasks')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('tasksList');
+                    if (data.tasks.length === 0) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📋</div>
+                                <p>No recent tasks to display</p>
+                                <p style="font-size: 0.875rem; margin-top: 8px;">Tasks will appear here as they are processed</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    let html = '';
+                    data.tasks.forEach(task => {
+                        const stateClass = task.state === 'completed' ? 'completed' : 
+                                          task.state === 'failed' ? 'failed' : 
+                                          task.state === 'processing' ? '' : '';
+                        const stateStyleClass = task.state === 'completed' ? 'state-completed' : 
+                                               task.state === 'failed' ? 'state-failed' : 
+                                               task.state === 'processing' ? 'state-processing' : 'state-pending';
+                        
+                        // Calculate duration if task has completed
+                        let duration = '';
+                        if (task.startedAt && task.completedAt) {
+                            const start = new Date(task.startedAt);
+                            const end = new Date(task.completedAt);
+                            const ms = end - start;
+                            duration = `${ms}ms`;
+                        }
+
+                        html += `
+                            <div class="task-item ${stateClass}" onclick="viewTaskDetail('${task.id}')">
+                                <div class="task-header">
+                                    <div>
+                                        <div class="task-type">${task.type}</div>
+                                        <div class="task-id">${task.id}</div>
+                                    </div>
+                                    <span class="task-state ${stateStyleClass}">${task.state.toUpperCase()}</span>
+                                </div>
+                                ${task.error ? `<div style="color: var(--danger-color); font-size: 0.875rem; margin-top: 8px;">Error: ${task.error}</div>` : ''}
+                                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 8px;">
+                                    Priority: ${task.priority} | 
+                                    ${duration ? `Duration: ${duration} | ` : ''}
+                                    ${task.retryCount > 0 ? `Retries: ${task.retryCount} | ` : ''}
+                                    Created: ${new Date(task.createdAt).toLocaleString()}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                })
+                .catch(err => {
+                    console.error('Failed to fetch recent tasks:', err);
+                    const container = document.getElementById('tasksList');
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⚠️</div>
+                            <p>Failed to load tasks</p>
+                            <p style="font-size: 0.875rem; margin-top: 8px;">Please check the connection</p>
+                        </div>
+                    `;
+                });
+        }
+
         // View task details
         function viewTaskDetail(taskId) {
             fetch(`/api/tasks/${taskId}`)
@@ -754,6 +822,8 @@
             // Load data for specific tabs
             if (tabName === 'dlq') {
                 fetchDLQTasks();
+            } else if (tabName === 'tasks') {
+                fetchRecentTasks();
             }
         }
 
@@ -780,6 +850,9 @@
             initChart();
             connectWebSocket();
             fetchDLQTasks();
+            
+            // Auto-refresh tasks every 5 seconds
+            setInterval(fetchRecentTasks, 5000);
         });
     </script>
 </body>

@@ -14,6 +14,7 @@ import (
 	"github.com/farhan-ahmed1/spool/internal/monitoring"
 	"github.com/farhan-ahmed1/spool/internal/queue"
 	"github.com/farhan-ahmed1/spool/internal/storage"
+	"github.com/farhan-ahmed1/spool/internal/task"
 )
 
 // Server provides a real-time web dashboard for monitoring the task queue system
@@ -269,14 +270,80 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// This would require storage implementation to fetch recent tasks
-	// For now, return empty list
-	tasks := []TaskDetail{}
+	if s.storage == nil {
+		// If storage not configured, return empty list
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"tasks": []TaskDetail{},
+			"total": 0,
+		})
+		return
+	}
+	
+	ctx := r.Context()
+	
+	// Fetch recent tasks from different states
+	limit := 50 // Show last 50 tasks
+	
+	allTasks := make([]*task.Task, 0, limit)
+	
+	// Fetch completed tasks
+	completedTasks, err := s.storage.GetTasksByState(ctx, task.StateCompleted, limit/3)
+	if err == nil {
+		allTasks = append(allTasks, completedTasks...)
+	}
+	
+	// Fetch failed tasks
+	failedTasks, err := s.storage.GetTasksByState(ctx, task.StateFailed, limit/3)
+	if err == nil {
+		allTasks = append(allTasks, failedTasks...)
+	}
+	
+	// Fetch processing tasks
+	processingTasks, err := s.storage.GetTasksByState(ctx, task.StateProcessing, limit/3)
+	if err == nil {
+		allTasks = append(allTasks, processingTasks...)
+	}
+	
+	// Convert to TaskDetail
+	details := make([]TaskDetail, 0, len(allTasks))
+	for _, t := range allTasks {
+		detail := TaskDetail{
+			ID:         t.ID,
+			Type:       t.Type,
+			State:      string(t.State),
+			Priority:   int(t.Priority),
+			RetryCount: t.RetryCount,
+			MaxRetries: t.MaxRetries,
+			CreatedAt:  t.CreatedAt.Format(time.RFC3339),
+			Error:      t.Error,
+			Metadata:   t.Metadata,
+		}
+		
+		if t.StartedAt != nil {
+			detail.StartedAt = t.StartedAt.Format(time.RFC3339)
+		}
+		if t.CompletedAt != nil {
+			detail.CompletedAt = t.CompletedAt.Format(time.RFC3339)
+		}
+		
+		details = append(details, detail)
+	}
+	
+	// Sort by creation time (most recent first)
+	// Simple bubble sort for small datasets
+	for i := 0; i < len(details)-1; i++ {
+		for j := i + 1; j < len(details); j++ {
+			if details[i].CreatedAt < details[j].CreatedAt {
+				details[i], details[j] = details[j], details[i]
+			}
+		}
+	}
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"tasks": tasks,
-		"total": len(tasks),
+		"tasks": details,
+		"total": len(details),
 	})
 }
 

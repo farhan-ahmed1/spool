@@ -303,6 +303,93 @@ func TestCollectMetrics(t *testing.T) {
 	assert.NotEmpty(t, update.Uptime)
 }
 
+func TestHandleTasks(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+	
+	// Create test tasks in different states
+	completedTask, _ := task.NewTask("completed-task", map[string]interface{}{"key": "value"})
+	completedTask.State = task.StateCompleted
+	
+	failedTask, _ := task.NewTask("failed-task", map[string]interface{}{"key": "value"})
+	failedTask.State = task.StateFailed
+	failedTask.Error = "Test error"
+	
+	processingTask, _ := task.NewTask("processing-task", map[string]interface{}{"key": "value"})
+	processingTask.State = task.StateProcessing
+	
+	storage := &mockStorage{
+		tasks: map[string]*task.Task{
+			completedTask.ID:  completedTask,
+			failedTask.ID:     failedTask,
+			processingTask.ID: processingTask,
+		},
+	}
+
+	tests := []struct {
+		name           string
+		storage        *mockStorage
+		expectedStatus int
+		checkBody      bool
+	}{
+		{
+			name:           "with storage and tasks",
+			storage:        storage,
+			expectedStatus: http.StatusOK,
+			checkBody:      true,
+		},
+		{
+			name:           "without storage",
+			storage:        nil,
+			expectedStatus: http.StatusOK,
+			checkBody:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := NewServer(Config{
+				Metrics: metrics,
+				Queue:   q,
+				Storage: tt.storage,
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+			w := httptest.NewRecorder()
+
+			server.handleTasks(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
+			
+			if tt.checkBody {
+				body := w.Body.String()
+				assert.Contains(t, body, "tasks")
+				assert.Contains(t, body, "total")
+			}
+		})
+	}
+}
+
+func TestHandleTasksMethodNotAllowed(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
 func TestHandleTaskDetail(t *testing.T) {
 	q := &mockQueue{healthy: true}
 	metrics := monitoring.NewMetrics(q)
