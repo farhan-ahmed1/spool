@@ -434,15 +434,16 @@ func TestE2E_DashboardMetricsAccuracy(t *testing.T) {
 		t.Fatalf("Failed to register handler: %v", err)
 	}
 
-	// Start worker
+	// Start worker wrapped with metrics instrumentation
 	w := worker.NewWorker(q, store, registry, worker.Config{
 		ID:           "test-worker",
 		PollInterval: 50 * time.Millisecond,
 	})
-	if err := w.Start(ctx); err != nil {
+	iw := worker.NewInstrumentedWorker(w, metrics)
+	if err := iw.Start(ctx); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
 	}
-	defer w.Stop()
+	defer iw.Stop()
 
 	// Enqueue known number of tasks
 	taskCount := 20
@@ -466,6 +467,9 @@ func TestE2E_DashboardMetricsAccuracy(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+
+	// Give instrumented worker time to sync stats to metrics (syncs every 100ms)
+	time.Sleep(200 * time.Millisecond)
 
 	// Verify metrics accuracy
 	snapshot := metrics.Snapshot()
@@ -520,12 +524,11 @@ func TestE2E_ConcurrentWorkersConsistency(t *testing.T) {
 	defer q.Close()
 
 	store := storage.NewRedisStorage(client)
-	_ = monitoring.NewMetrics(q) // Initialize metrics (not used directly in this test)
+	metrics := monitoring.NewMetrics(q)
 	registry := task.NewRegistry()
 
-	// Track which tasks were processed and by whom
-	processedTasks := make(map[string]string) // taskID -> workerID
-	var mu sync.Mutex
+	// Track which tasks were processed
+	var processedCount int32
 
 	err = registry.Register("concurrent_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		var data map[string]interface{}
@@ -533,33 +536,30 @@ func TestE2E_ConcurrentWorkersConsistency(t *testing.T) {
 			return nil, err
 		}
 
+		atomic.AddInt32(&processedCount, 1)
 		taskID := fmt.Sprint(data["id"])
-		workerID := fmt.Sprint(data["worker_context"])
-
-		mu.Lock()
-		processedTasks[taskID] = workerID
-		mu.Unlock()
 
 		time.Sleep(20 * time.Millisecond)
-		return map[string]string{"task_id": taskID, "worker": workerID}, nil
+		return map[string]string{"task_id": taskID}, nil
 	})
 	if err != nil {
 		t.Fatalf("Failed to register handler: %v", err)
 	}
 
-	// Start multiple workers
+	// Start multiple workers with metrics instrumentation
 	workerCount := 3
-	workers := make([]*worker.Worker, workerCount)
+	workers := make([]*worker.InstrumentedWorker, workerCount)
 	for i := 0; i < workerCount; i++ {
 		w := worker.NewWorker(q, store, registry, worker.Config{
 			ID:           fmt.Sprintf("worker-%d", i+1),
 			PollInterval: 50 * time.Millisecond,
 		})
-		if err := w.Start(ctx); err != nil {
+		iw := worker.NewInstrumentedWorker(w, metrics)
+		if err := iw.Start(ctx); err != nil {
 			t.Fatalf("Failed to start worker %d: %v", i+1, err)
 		}
-		workers[i] = w
-		defer w.Stop()
+		workers[i] = iw
+		defer iw.Stop()
 	}
 
 	// Enqueue tasks
@@ -581,32 +581,28 @@ func TestE2E_ConcurrentWorkersConsistency(t *testing.T) {
 	maxWait := 10 * time.Second
 	deadline := time.Now().Add(maxWait)
 	for time.Now().Before(deadline) {
-		mu.Lock()
-		processed := len(processedTasks)
-		mu.Unlock()
-
-		if processed >= taskCount {
+		count := atomic.LoadInt32(&processedCount)
+		if count >= int32(taskCount) {
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
 
 	// Verify all tasks were processed exactly once
-	mu.Lock()
-	processedCount := len(processedTasks)
-	mu.Unlock()
-
-	if processedCount != taskCount {
-		t.Errorf("Expected %d tasks processed, got %d", taskCount, processedCount)
+	finalProcessed := atomic.LoadInt32(&processedCount)
+	if finalProcessed != int32(taskCount) {
+		t.Errorf("Expected %d tasks processed, got %d", taskCount, finalProcessed)
 	}
 
-	// Verify task distribution across workers
-	workerTaskCount := make(map[string]int)
-	mu.Lock()
-	for _, workerID := range processedTasks {
-		workerTaskCount[workerID]++
+	// Give workers time to sync their stats to metrics
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify task distribution across workers using metrics
+	workerDetails := metrics.GetAllWorkerDetails()
+	workerTaskCount := make(map[string]int64)
+	for _, stats := range workerDetails {
+		workerTaskCount[stats.ID] = stats.TasksCompleted
 	}
-	mu.Unlock()
 
 	t.Logf("Task distribution across workers:")
 	for workerID, count := range workerTaskCount {
