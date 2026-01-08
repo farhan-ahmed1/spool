@@ -461,6 +461,33 @@
             </div>
         </div>
 
+        <!-- Throughput Chart -->
+        <div class="chart-container">
+            <div class="chart-title">Throughput Over Time (Tasks/Second)</div>
+            <div class="chart-wrapper">
+                <canvas id="throughputChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Analytics Grid -->
+        <div class="grid" style="grid-template-columns: 2fr 1fr;">
+            <!-- Task Success/Failure Chart -->
+            <div class="chart-container" style="margin-bottom: 0;">
+                <div class="chart-title">Task Completion Ratio</div>
+                <div class="chart-wrapper" style="height: 250px;">
+                    <canvas id="taskRatioChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Task Processing Heatmap -->
+            <div class="chart-container" style="margin-bottom: 0;">
+                <div class="chart-title">Processing Activity (Last 24 Hours)</div>
+                <div style="padding: 10px;">
+                    <canvas id="heatmapChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
         <!-- Performance Metrics -->
         <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
             <div class="card">
@@ -533,6 +560,11 @@
     <script>
         // Global state
         let queueChart = null;
+        let throughputChart = null;
+        let taskRatioChart = null;
+        let heatmapChart = null;
+        let heatmapData = Array(24).fill(0); // 24 hours of data
+        
         let queueDepthData = {
             labels: [],
             datasets: [{
@@ -545,10 +577,23 @@
             }]
         };
 
+        let throughputData = {
+            labels: [],
+            datasets: [{
+                label: 'Tasks/Second',
+                data: [],
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        };
+
         // Initialize Chart.js
         function initChart() {
-            const ctx = document.getElementById('queueChart').getContext('2d');
-            queueChart = new Chart(ctx, {
+            // Queue Depth Chart
+            const ctxQueue = document.getElementById('queueChart').getContext('2d');
+            queueChart = new Chart(ctxQueue, {
                 type: 'line',
                 data: queueDepthData,
                 options: {
@@ -595,6 +640,176 @@
                     }
                 }
             });
+
+            // Throughput Chart
+            const ctxThroughput = document.getElementById('throughputChart').getContext('2d');
+            throughputChart = new Chart(ctxThroughput, {
+                type: 'line',
+                data: throughputData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(2) + ' tasks/sec';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1);
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                maxTicksLimit: 10
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Task Ratio Donut Chart
+            const ctxRatio = document.getElementById('taskRatioChart').getContext('2d');
+            taskRatioChart = new Chart(ctxRatio, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'Failed', 'In Progress'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: [
+                            'rgb(16, 185, 129)',
+                            'rgb(239, 68, 68)',
+                            'rgb(245, 158, 11)'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return label + ': ' + value.toLocaleString() + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Heatmap (custom canvas drawing)
+            initHeatmap();
+        }
+
+        // Initialize heatmap
+        function initHeatmap() {
+            const canvas = document.getElementById('heatmapChart');
+            const ctx = canvas.getContext('2d');
+            updateHeatmap(ctx);
+        }
+
+        // Update heatmap visualization
+        function updateHeatmap(ctx) {
+            const canvas = ctx.canvas;
+            const width = canvas.width;
+            const height = canvas.height;
+            const cellWidth = width / 24;
+            const cellHeight = height / 4;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Get max value for normalization
+            const maxValue = Math.max(...heatmapData, 1);
+
+            // Draw cells
+            for (let i = 0; i < 24; i++) {
+                const intensity = heatmapData[i] / maxValue;
+                const row = Math.floor(i / 6);
+                const col = i % 6;
+
+                // Color based on intensity (blue to red gradient)
+                let color;
+                if (intensity < 0.25) {
+                    color = `rgba(219, 234, 254, ${0.3 + intensity * 2})`;
+                } else if (intensity < 0.5) {
+                    color = `rgba(147, 197, 253, ${0.4 + intensity})`;
+                } else if (intensity < 0.75) {
+                    color = `rgba(59, 130, 246, ${0.5 + intensity})`;
+                } else {
+                    color = `rgba(37, 99, 235, ${0.6 + intensity * 0.4})`;
+                }
+
+                ctx.fillStyle = color;
+                ctx.fillRect(col * cellWidth, row * cellHeight, cellWidth - 1, cellHeight - 1);
+
+                // Add hour label
+                ctx.fillStyle = '#374151';
+                ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const hour = i.toString().padStart(2, '0') + ':00';
+                ctx.fillText(hour, col * cellWidth + cellWidth / 2, row * cellHeight + cellHeight / 2);
+            }
+        }
+
+        // Update heatmap data based on current hour
+        function updateHeatmapData(tasksProcessed) {
+            const currentHour = new Date().getHours();
+            heatmapData[currentHour] = tasksProcessed;
+            
+            const canvas = document.getElementById('heatmapChart');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                updateHeatmap(ctx);
+            }
         }
 
         // Update dashboard with new metrics
@@ -631,7 +846,7 @@
             document.getElementById('tasksInProgress').textContent = metrics.tasksInProgress;
             document.getElementById('dlqSize').textContent = metrics.dlqSize;
 
-            // Update chart
+            // Update queue depth chart
             if (metrics.queueTrend && metrics.queueTrend.length > 0) {
                 queueDepthData.labels = metrics.queueTrend.map(p => {
                     const date = new Date(p.timestamp);
@@ -640,6 +855,26 @@
                 queueDepthData.datasets[0].data = metrics.queueTrend.map(p => p.depth);
                 queueChart.update('none'); // Update without animation for smooth real-time updates
             }
+
+            // Update throughput chart
+            if (metrics.throughputTrend && metrics.throughputTrend.length > 0) {
+                throughputData.labels = metrics.throughputTrend.map(p => {
+                    const date = new Date(p.timestamp);
+                    return date.toLocaleTimeString();
+                });
+                throughputData.datasets[0].data = metrics.throughputTrend.map(p => p.throughput);
+                throughputChart.update('none');
+            }
+
+            // Update task ratio donut chart
+            const completed = metrics.tasksProcessed - metrics.tasksFailed;
+            const failed = metrics.tasksFailed;
+            const inProgress = metrics.tasksInProgress;
+            taskRatioChart.data.datasets[0].data = [completed, failed, inProgress];
+            taskRatioChart.update('none');
+
+            // Update heatmap
+            updateHeatmapData(metrics.tasksProcessed);
 
             // Update workers list
             updateWorkersList(metrics);

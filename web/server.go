@@ -50,35 +50,42 @@ type Config struct {
 
 // MetricsUpdate represents real-time metrics data sent to dashboard clients
 type MetricsUpdate struct {
-	Timestamp         string            `json:"timestamp"`
-	QueueDepth        int64             `json:"queueDepth"`
-	QueueDepthHigh    int64             `json:"queueDepthHigh"`
-	QueueDepthLow     int64             `json:"queueDepthLow"`
-	QueueTrend        []QueueDataPoint  `json:"queueTrend"`
-	ActiveWorkers     int32             `json:"activeWorkers"`
-	IdleWorkers       int32             `json:"idleWorkers"`
-	BusyWorkers       int32             `json:"busyWorkers"`
-	WorkerUtilization float64           `json:"workerUtilization"`
-	TasksProcessed    int64             `json:"tasksProcessed"`
-	TasksFailed       int64             `json:"tasksFailed"`
-	TasksRetried      int64             `json:"tasksRetried"`
-	TasksEnqueued     int64             `json:"tasksEnqueued"`
-	TasksInProgress   int32             `json:"tasksInProgress"`
-	CurrentThroughput float64           `json:"currentThroughput"`
-	AvgThroughput     float64           `json:"avgThroughput"`
-	AvgProcessingTime string            `json:"avgProcessingTime"`
-	P95ProcessingTime string            `json:"p95ProcessingTime"`
-	P99ProcessingTime string            `json:"p99ProcessingTime"`
-	Uptime            string            `json:"uptime"`
-	OldestIdleTime    string            `json:"oldestIdleTime"`
-	DLQSize           int64             `json:"dlqSize"`
-	QueueHealth       string            `json:"queueHealth"`
+	Timestamp         string              `json:"timestamp"`
+	QueueDepth        int64               `json:"queueDepth"`
+	QueueDepthHigh    int64               `json:"queueDepthHigh"`
+	QueueDepthLow     int64               `json:"queueDepthLow"`
+	QueueTrend        []QueueDataPoint    `json:"queueTrend"`
+	ThroughputTrend   []ThroughputDataPoint `json:"throughputTrend"`
+	ActiveWorkers     int32               `json:"activeWorkers"`
+	IdleWorkers       int32               `json:"idleWorkers"`
+	BusyWorkers       int32               `json:"busyWorkers"`
+	WorkerUtilization float64             `json:"workerUtilization"`
+	TasksProcessed    int64               `json:"tasksProcessed"`
+	TasksFailed       int64               `json:"tasksFailed"`
+	TasksRetried      int64               `json:"tasksRetried"`
+	TasksEnqueued     int64               `json:"tasksEnqueued"`
+	TasksInProgress   int32               `json:"tasksInProgress"`
+	CurrentThroughput float64             `json:"currentThroughput"`
+	AvgThroughput     float64             `json:"avgThroughput"`
+	AvgProcessingTime string              `json:"avgProcessingTime"`
+	P95ProcessingTime string              `json:"p95ProcessingTime"`
+	P99ProcessingTime string              `json:"p99ProcessingTime"`
+	Uptime            string              `json:"uptime"`
+	OldestIdleTime    string              `json:"oldestIdleTime"`
+	DLQSize           int64               `json:"dlqSize"`
+	QueueHealth       string              `json:"queueHealth"`
 }
 
 // QueueDataPoint represents a point in the queue depth time series
 type QueueDataPoint struct {
 	Timestamp string `json:"timestamp"`
 	Depth     int64  `json:"depth"`
+}
+
+// ThroughputDataPoint represents a point in the throughput time series
+type ThroughputDataPoint struct {
+	Timestamp  string  `json:"timestamp"`
+	Throughput float64 `json:"throughput"`
 }
 
 // TaskDetail represents detailed information about a task
@@ -486,6 +493,16 @@ func (s *Server) collectMetrics() MetricsUpdate {
 		})
 	}
 	
+	// Get throughput trend (last 5 minutes)
+	throughputHistory := s.metrics.GetThroughputTrend(5 * time.Minute)
+	throughputTrend := make([]ThroughputDataPoint, 0, len(throughputHistory))
+	for _, point := range throughputHistory {
+		throughputTrend = append(throughputTrend, ThroughputDataPoint{
+			Timestamp:  point.Timestamp.Format(time.RFC3339),
+			Throughput: point.TasksPerSec,
+		})
+	}
+	
 	// Get DLQ size
 	dlqSize, _ := s.queue.GetDLQSize(ctx)
 	
@@ -507,6 +524,7 @@ func (s *Server) collectMetrics() MetricsUpdate {
 		QueueDepthHigh:    snapshot.QueueDepthHigh,
 		QueueDepthLow:     snapshot.QueueDepthLow,
 		QueueTrend:        queueTrend,
+		ThroughputTrend:   throughputTrend,
 		ActiveWorkers:     snapshot.ActiveWorkers,
 		IdleWorkers:       snapshot.IdleWorkers,
 		BusyWorkers:       snapshot.BusyWorkers,

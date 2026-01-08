@@ -167,6 +167,21 @@ func (m *Metrics) GetQueueDepthTrend(duration time.Duration) []QueueDepthSnapsho
 	return trend
 }
 
+// GetThroughputTrend returns throughput samples within the specified duration
+func (m *Metrics) GetThroughputTrend(duration time.Duration) []ThroughputSample {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	cutoff := time.Now().Add(-duration)
+	var trend []ThroughputSample
+	for _, sample := range m.throughputSamples {
+		if sample.Timestamp.After(cutoff) {
+			trend = append(trend, sample)
+		}
+	}
+	return trend
+}
+
 // RegisterWorker adds a new worker to tracking
 func (m *Metrics) RegisterWorker(workerID string) {
 	m.mu.Lock()
