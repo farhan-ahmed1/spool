@@ -39,6 +39,10 @@ func TestE2E_CompleteWorkflow(t *testing.T) {
 	if err := client.Ping(ctx).Err(); err != nil {
 		t.Skipf("Redis not available: %v", err)
 	}
+	// Flush any old test data before starting
+	if err := client.FlushDB(ctx).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
+	}
 	defer client.FlushDB(ctx)
 	defer client.Close()
 
@@ -116,7 +120,7 @@ func TestE2E_CompleteWorkflow(t *testing.T) {
 
 	// Start dashboard server
 	dashboardConfig := web.Config{
-		Addr:    ":18080", // Use different port for testing
+		Addr:    ":0", // Use random available port for testing
 		Metrics: metrics,
 		Queue:   q,
 		Storage: store,
@@ -131,16 +135,15 @@ func TestE2E_CompleteWorkflow(t *testing.T) {
 		}
 	}()
 
-	// Give server time to start
-	time.Sleep(200 * time.Millisecond)
-
-	// Check if server started successfully
+	// Wait for server to be ready
 	select {
+	case <-server.Ready():
+		// Server is ready
+		serverStarted = true
 	case err := <-serverErrCh:
 		t.Fatalf("Dashboard server failed to start: %v", err)
-	default:
-		// Server started successfully
-		serverStarted = true
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for server to start")
 	}
 
 	// Phase 1: Submit initial batch of tasks (low load)
@@ -158,11 +161,12 @@ func TestE2E_CompleteWorkflow(t *testing.T) {
 		}
 	}
 
-	// Wait for initial tasks to complete
-	time.Sleep(500 * time.Millisecond)
+	// Wait for initial tasks to complete (worker polls every 50ms, needs time to process)
+	time.Sleep(2 * time.Second)
 
-	if atomic.LoadInt32(&executedCount) < 10 {
-		t.Errorf("Expected at least 10 tasks executed, got %d", executedCount)
+	executedSoFar := atomic.LoadInt32(&executedCount)
+	if executedSoFar < 10 {
+		t.Errorf("Expected at least 10 tasks executed, got %d", executedSoFar)
 	}
 
 	// Phase 2: Submit large batch (trigger scaling need)
@@ -302,6 +306,10 @@ func TestE2E_AutoScalingIntegration(t *testing.T) {
 	if err := client.Ping(ctx).Err(); err != nil {
 		t.Skipf("Redis not available: %v", err)
 	}
+	// Flush any old test data before starting
+	if err := client.FlushDB(ctx).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
+	}
 	defer client.FlushDB(ctx)
 	defer client.Close()
 
@@ -396,6 +404,10 @@ func TestE2E_DashboardMetricsAccuracy(t *testing.T) {
 	ctx := context.Background()
 	if err := client.Ping(ctx).Err(); err != nil {
 		t.Skipf("Redis not available: %v", err)
+	}
+	// Flush any old test data before starting
+	if err := client.FlushDB(ctx).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
 	}
 	defer client.FlushDB(ctx)
 	defer client.Close()
@@ -492,6 +504,10 @@ func TestE2E_ConcurrentWorkersConsistency(t *testing.T) {
 	ctx := context.Background()
 	if err := client.Ping(ctx).Err(); err != nil {
 		t.Skipf("Redis not available: %v", err)
+	}
+	// Flush any old test data before starting
+	if err := client.FlushDB(ctx).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
 	}
 	defer client.FlushDB(ctx)
 	defer client.Close()

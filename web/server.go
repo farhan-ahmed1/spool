@@ -192,6 +192,11 @@ func (s *Server) Start() error {
 	return server.ListenAndServe()
 }
 
+// Ready returns a channel that is closed when the server is ready to accept requests
+func (s *Server) Ready() <-chan struct{} {
+	return s.ready
+}
+
 // Stop gracefully shuts down the server
 func (s *Server) Stop(ctx context.Context) error {
 	close(s.done)
