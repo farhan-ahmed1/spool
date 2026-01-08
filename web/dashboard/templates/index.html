@@ -3,9 +3,784 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spool Dashboard</title>
+    <title>Spool Dashboard - Real-time Task Queue Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #2563eb;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --secondary-color: #6b7280;
+            --bg-color: #f9fafb;
+            --card-bg: #ffffff;
+            --border-color: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1e40af 100%);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-healthy {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: var(--success-color);
+        }
+
+        .status-unhealthy {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: var(--danger-color);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .card-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .card-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+
+        .worker-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .worker-item {
+            background: var(--bg-color);
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--success-color);
+            transition: all 0.2s;
+        }
+
+        .worker-item.busy {
+            border-left-color: var(--warning-color);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .worker-item.idle {
+            border-left-color: var(--secondary-color);
+        }
+
+        .worker-id {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .worker-status {
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .status-busy {
+            color: var(--warning-color);
+        }
+
+        .status-idle {
+            color: var(--success-color);
+        }
+
+        .task-list {
+            margin-top: 20px;
+        }
+
+        .task-item {
+            background: var(--bg-color);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--primary-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-item:hover {
+            background: #f3f4f6;
+            transform: translateX(2px);
+        }
+
+        .task-item.failed {
+            border-left-color: var(--danger-color);
+        }
+
+        .task-item.completed {
+            border-left-color: var(--success-color);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .task-id {
+            font-family: monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .task-type {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .task-state {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .state-pending {
+            background: rgba(107, 114, 128, 0.1);
+            color: var(--secondary-color);
+        }
+
+        .state-processing {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .state-completed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .state-failed {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg);
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .refresh-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success-color);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab:hover {
+            color: var(--primary-color);
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card-value {
+                font-size: 2rem;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Spool Dashboard</h1>
+    <header>
+        <div class="container">
+            <h1>
+                🎯 Spool Dashboard
+                <span id="queueHealth" class="status-badge status-healthy">Healthy</span>
+            </h1>
+            <p>Real-time monitoring for your distributed task queue system</p>
+            <p style="font-size: 0.875rem; margin-top: 8px;">
+                Uptime: <strong id="uptime">--</strong> | 
+                Last Updated: <strong id="lastUpdated">--</strong>
+            </p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Key Metrics -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">Queue Depth</div>
+                <div class="card-value" id="queueDepth">--</div>
+                <div class="card-subtitle">
+                    <span style="color: var(--danger-color);">↑ High: <span id="queueDepthHigh">--</span></span> | 
+                    <span style="color: var(--success-color);">↓ Low: <span id="queueDepthLow">--</span></span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Active Workers</div>
+                <div class="card-value" id="activeWorkers">--</div>
+                <div class="card-subtitle">
+                    <span style="color: var(--warning-color);">⚡ Busy: <span id="busyWorkers">--</span></span> | 
+                    <span style="color: var(--success-color);">💤 Idle: <span id="idleWorkers">--</span></span>
+                </div>
+                <div class="card-metric">
+                    <span class="metric-label">Utilization</span>
+                    <span class="metric-value" id="workerUtilization">--%</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Tasks Processed</div>
+                <div class="card-value" id="tasksProcessed">--</div>
+                <div class="card-subtitle">
+                    <span style="color: var(--danger-color);">✗ Failed: <span id="tasksFailed">--</span></span> | 
+                    <span style="color: var(--warning-color);">↻ Retried: <span id="tasksRetried">--</span></span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Throughput</div>
+                <div class="card-value" id="currentThroughput">--</div>
+                <div class="card-subtitle">tasks/sec (current)</div>
+                <div class="card-metric">
+                    <span class="metric-label">Average</span>
+                    <span class="metric-value"><span id="avgThroughput">--</span> tasks/sec</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue Depth Chart -->
+        <div class="chart-container">
+            <div class="chart-title">📊 Queue Depth Over Time</div>
+            <div class="chart-wrapper">
+                <canvas id="queueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <div class="card">
+                <div class="card-title">Avg Processing Time</div>
+                <div class="card-value" style="font-size: 1.5rem;" id="avgProcessingTime">--</div>
+            </div>
+            <div class="card">
+                <div class="card-title">P95 Processing Time</div>
+                <div class="card-value" style="font-size: 1.5rem;" id="p95ProcessingTime">--</div>
+            </div>
+            <div class="card">
+                <div class="card-title">P99 Processing Time</div>
+                <div class="card-value" style="font-size: 1.5rem;" id="p99ProcessingTime">--</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Tasks In Progress</div>
+                <div class="card-value" style="font-size: 1.5rem;" id="tasksInProgress">--</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Dead Letter Queue</div>
+                <div class="card-value" style="font-size: 1.5rem; color: var(--danger-color);" id="dlqSize">--</div>
+            </div>
+        </div>
+
+        <!-- Tabbed Interface -->
+        <div class="chart-container">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('workers')">👷 Workers</button>
+                <button class="tab" onclick="switchTab('tasks')">📋 Recent Tasks</button>
+                <button class="tab" onclick="switchTab('dlq')">⚠️ Dead Letter Queue</button>
+            </div>
+
+            <div id="workers-tab" class="tab-content active">
+                <div class="chart-title">Worker Status</div>
+                <div id="workersList" class="worker-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading workers...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tasks-tab" class="tab-content">
+                <div class="chart-title">Recent Tasks</div>
+                <div id="tasksList" class="task-list">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>No recent tasks to display</p>
+                        <p style="font-size: 0.875rem; margin-top: 8px;">Tasks will appear here as they are processed</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dlq-tab" class="tab-content">
+                <div class="chart-title">Dead Letter Queue</div>
+                <div id="dlqList" class="task-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading DLQ tasks...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="refresh-indicator">
+        <div class="refresh-dot"></div>
+        <span>Live Updates Active</span>
+    </div>
+
+    <script>
+        // Global state
+        let queueChart = null;
+        let queueDepthData = {
+            labels: [],
+            datasets: [{
+                label: 'Queue Depth',
+                data: [],
+                borderColor: 'rgb(37, 99, 235)',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        };
+
+        // Initialize Chart.js
+        function initChart() {
+            const ctx = document.getElementById('queueChart').getContext('2d');
+            queueChart = new Chart(ctx, {
+                type: 'line',
+                data: queueDepthData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 13
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                maxTicksLimit: 10
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update dashboard with new metrics
+        function updateDashboard(metrics) {
+            // Update header
+            document.getElementById('uptime').textContent = metrics.uptime;
+            document.getElementById('lastUpdated').textContent = new Date(metrics.timestamp).toLocaleTimeString();
+            
+            const healthBadge = document.getElementById('queueHealth');
+            healthBadge.textContent = metrics.queueHealth.charAt(0).toUpperCase() + metrics.queueHealth.slice(1);
+            healthBadge.className = 'status-badge ' + (metrics.queueHealth === 'healthy' ? 'status-healthy' : 'status-unhealthy');
+
+            // Update key metrics
+            document.getElementById('queueDepth').textContent = metrics.queueDepth.toLocaleString();
+            document.getElementById('queueDepthHigh').textContent = metrics.queueDepthHigh.toLocaleString();
+            document.getElementById('queueDepthLow').textContent = metrics.queueDepthLow.toLocaleString();
+            
+            document.getElementById('activeWorkers').textContent = metrics.activeWorkers;
+            document.getElementById('busyWorkers').textContent = metrics.busyWorkers;
+            document.getElementById('idleWorkers').textContent = metrics.idleWorkers;
+            document.getElementById('workerUtilization').textContent = metrics.workerUtilization.toFixed(1) + '%';
+            
+            document.getElementById('tasksProcessed').textContent = metrics.tasksProcessed.toLocaleString();
+            document.getElementById('tasksFailed').textContent = metrics.tasksFailed.toLocaleString();
+            document.getElementById('tasksRetried').textContent = metrics.tasksRetried.toLocaleString();
+            
+            document.getElementById('currentThroughput').textContent = metrics.currentThroughput.toFixed(2);
+            document.getElementById('avgThroughput').textContent = metrics.avgThroughput.toFixed(2);
+            
+            // Update performance metrics
+            document.getElementById('avgProcessingTime').textContent = metrics.avgProcessingTime;
+            document.getElementById('p95ProcessingTime').textContent = metrics.p95ProcessingTime;
+            document.getElementById('p99ProcessingTime').textContent = metrics.p99ProcessingTime;
+            document.getElementById('tasksInProgress').textContent = metrics.tasksInProgress;
+            document.getElementById('dlqSize').textContent = metrics.dlqSize;
+
+            // Update chart
+            if (metrics.queueTrend && metrics.queueTrend.length > 0) {
+                queueDepthData.labels = metrics.queueTrend.map(p => {
+                    const date = new Date(p.timestamp);
+                    return date.toLocaleTimeString();
+                });
+                queueDepthData.datasets[0].data = metrics.queueTrend.map(p => p.depth);
+                queueChart.update('none'); // Update without animation for smooth real-time updates
+            }
+
+            // Update workers list
+            updateWorkersList(metrics);
+        }
+
+        // Update workers visualization
+        function updateWorkersList(metrics) {
+            const container = document.getElementById('workersList');
+            if (metrics.activeWorkers === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <div class="empty-state-icon">😴</div>
+                        <p>No active workers</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            
+            // Generate worker items (mock data based on counts)
+            for (let i = 0; i < metrics.busyWorkers; i++) {
+                html += `
+                    <div class="worker-item busy">
+                        <div class="worker-id">worker-${i + 1}</div>
+                        <div class="worker-status status-busy">● BUSY</div>
+                    </div>
+                `;
+            }
+            for (let i = 0; i < metrics.idleWorkers; i++) {
+                html += `
+                    <div class="worker-item idle">
+                        <div class="worker-id">worker-${metrics.busyWorkers + i + 1}</div>
+                        <div class="worker-status status-idle">● IDLE</div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Fetch DLQ tasks
+        function fetchDLQTasks() {
+            fetch('/api/dlq')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('dlqList');
+                    if (data.tasks.length === 0) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">✨</div>
+                                <p>No failed tasks in Dead Letter Queue</p>
+                                <p style="font-size: 0.875rem; margin-top: 8px;">All tasks are processing successfully!</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    let html = '';
+                    data.tasks.forEach(task => {
+                        html += `
+                            <div class="task-item failed" onclick="viewTaskDetail('${task.id}')">
+                                <div class="task-header">
+                                    <div>
+                                        <div class="task-type">${task.type}</div>
+                                        <div class="task-id">${task.id}</div>
+                                    </div>
+                                    <span class="task-state state-failed">${task.state}</span>
+                                </div>
+                                ${task.error ? `<div style="color: var(--danger-color); font-size: 0.875rem; margin-top: 8px;">Error: ${task.error}</div>` : ''}
+                                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 8px;">
+                                    Retries: ${task.retryCount}/${task.maxRetries} | Created: ${new Date(task.createdAt).toLocaleString()}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                })
+                .catch(err => {
+                    console.error('Failed to fetch DLQ tasks:', err);
+                });
+        }
+
+        // View task details
+        function viewTaskDetail(taskId) {
+            fetch(`/api/tasks/${taskId}`)
+                .then(res => res.json())
+                .then(task => {
+                    alert(`Task Details:\n\nID: ${task.id}\nType: ${task.type}\nState: ${task.state}\nPriority: ${task.priority}\nRetries: ${task.retryCount}/${task.maxRetries}\n\n${task.error ? 'Error: ' + task.error : 'No errors'}`);
+                })
+                .catch(err => {
+                    console.error('Failed to fetch task details:', err);
+                    alert('Failed to load task details');
+                });
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            // Load data for specific tabs
+            if (tabName === 'dlq') {
+                fetchDLQTasks();
+            }
+        }
+
+        // Connect to WebSocket for real-time updates
+        function connectWebSocket() {
+            const eventSource = new EventSource('/api/ws');
+            
+            eventSource.onmessage = function(event) {
+                const metrics = JSON.parse(event.data);
+                updateDashboard(metrics);
+            };
+
+            eventSource.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                eventSource.close();
+                
+                // Reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initChart();
+            connectWebSocket();
+            fetchDLQTasks();
+        });
+    </script>
 </body>
 </html>

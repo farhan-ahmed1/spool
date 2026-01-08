@@ -81,7 +81,9 @@ func TestAutoScaler_ScaleUp_QueueDepth(t *testing.T) {
 
 	// Update metrics
 	ctx := context.Background()
-	metrics.UpdateQueueDepth(ctx)
+	if err := metrics.UpdateQueueDepth(ctx); err != nil {
+		t.Fatalf("UpdateQueueDepth failed: %v", err)
+	}
 
 	// Evaluate should trigger scale up
 	if err := scaler.evaluate(ctx); err != nil {
@@ -170,7 +172,9 @@ func TestAutoScaler_RespectMinWorkers(t *testing.T) {
 	scaler := NewAutoScaler(metrics, controller, cfg)
 
 	ctx := context.Background()
-	metrics.UpdateQueueDepth(ctx)
+	if err := metrics.UpdateQueueDepth(ctx); err != nil {
+		t.Fatalf("UpdateQueueDepth failed: %v", err)
+	}
 
 	// Try to scale down when at minimum
 	decision := scaler.decide(metrics.Snapshot(), 2)
@@ -197,7 +201,9 @@ func TestAutoScaler_RespectMaxWorkers(t *testing.T) {
 	scaler := NewAutoScaler(metrics, controller, cfg)
 
 	ctx := context.Background()
-	metrics.UpdateQueueDepth(ctx)
+	if err := metrics.UpdateQueueDepth(ctx); err != nil {
+		t.Fatalf("UpdateQueueDepth failed: %v", err)
+	}
 
 	// Try to scale up when at maximum
 	decision := scaler.decide(metrics.Snapshot(), 10)
@@ -354,7 +360,9 @@ func TestAutoScaler_GradualScaling(t *testing.T) {
 	scaler := NewAutoScaler(metrics, controller, cfg)
 
 	ctx := context.Background()
-	metrics.UpdateQueueDepth(ctx)
+	if err := metrics.UpdateQueueDepth(ctx); err != nil {
+		t.Fatalf("UpdateQueueDepth failed: %v", err)
+	}
 
 	decision := scaler.decide(metrics.Snapshot(), 2)
 
@@ -387,6 +395,8 @@ func BenchmarkAutoScaler_Evaluate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		scaler.evaluate(ctx)
+		if err := scaler.evaluate(ctx); err != nil {
+			b.Fatalf("evaluate failed: %v", err)
+		}
 	}
 }

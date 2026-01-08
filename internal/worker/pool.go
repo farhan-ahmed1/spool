@@ -258,23 +258,6 @@ func (p *Pool) createWorkerWithMetrics(workerID string) *Worker {
 	return worker
 }
 
-// monitorWorkerStates periodically updates worker states based on activity
-// This would be called from a background goroutine if needed
-func (p *Pool) monitorWorkerStates() {
-	// For now, we'll update states based on metrics
-	// In a more sophisticated implementation, we could track
-	// each worker's activity more granularly
-}
-
-// updateWorkerState updates the state of a worker
-func (p *Pool) updateWorkerState(workerID string, state WorkerState) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if _, exists := p.workerStates[workerID]; exists {
-		p.workerStates[workerID] = state
-	}
-}
-
 // GetStats returns pool statistics
 func (p *Pool) GetStats() map[string]interface{} {
 	p.mu.RLock()

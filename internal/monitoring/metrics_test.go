@@ -234,7 +234,9 @@ func TestMetrics_Snapshot(t *testing.T) {
 	ctx := context.Background()
 
 	// Setup some state
-	metrics.UpdateQueueDepth(ctx)
+	if err := metrics.UpdateQueueDepth(ctx); err != nil {
+		t.Fatalf("UpdateQueueDepth failed: %v", err)
+	}
 	metrics.RegisterWorker("worker-1")
 	metrics.RegisterWorker("worker-2")
 	metrics.MarkWorkerBusy("worker-1")
@@ -272,7 +274,9 @@ func TestMetrics_Reset(t *testing.T) {
 	ctx := context.Background()
 
 	// Add some data
-	metrics.UpdateQueueDepth(ctx)
+	if err := metrics.UpdateQueueDepth(ctx); err != nil {
+		t.Fatalf("UpdateQueueDepth failed: %v", err)
+	}
 	metrics.RegisterWorker("worker-1")
 	metrics.RecordTaskEnqueued()
 	metrics.RecordTaskStarted()
@@ -310,7 +314,9 @@ func BenchmarkMetrics_Snapshot(b *testing.B) {
 	ctx := context.Background()
 
 	// Setup some state
-	metrics.UpdateQueueDepth(ctx)
+	if err := metrics.UpdateQueueDepth(ctx); err != nil {
+		b.Fatalf("UpdateQueueDepth failed: %v", err)
+	}
 	for i := 0; i < 10; i++ {
 		metrics.RegisterWorker(string(rune('A' + i)))
 	}
