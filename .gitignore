@@ -7,6 +7,12 @@
 bin/
 dist/
 
+# Go compiled binaries (Unix)
+/dashboard
+/broker
+/client
+/worker
+
 # Test binary, built with `go test -c`
 *.test
 
