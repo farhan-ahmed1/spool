@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/farhan-ahmed1/spool/internal/logger"
 	"github.com/farhan-ahmed1/spool/internal/queue"
 	"github.com/farhan-ahmed1/spool/internal/storage"
 	"github.com/farhan-ahmed1/spool/internal/task"
@@ -23,6 +23,7 @@ type Worker struct {
 	storage  storage.Storage
 	registry *task.Registry
 	pollFreq time.Duration
+	logger   *logger.Logger
 
 	// Graceful shutdown
 	shutdownChan chan struct{}
@@ -51,12 +52,21 @@ func NewWorker(q queue.Queue, storage storage.Storage, registry *task.Registry, 
 		config.ID = fmt.Sprintf("worker-%d", time.Now().UnixNano())
 	}
 
+	// Create logger for this worker
+	workerLogger := logger.GetDefault()
+	if workerLogger == nil {
+		workerLogger = logger.New("info", "text", fmt.Sprintf("worker-%s", config.ID))
+	} else {
+		workerLogger = workerLogger.WithComponent(fmt.Sprintf("worker-%s", config.ID))
+	}
+
 	return &Worker{
 		id:           config.ID,
 		queue:        q,
 		storage:      storage,
 		registry:     registry,
 		pollFreq:     config.PollInterval,
+		logger:       workerLogger,
 		shutdownChan: make(chan struct{}),
 		running:      false,
 	}
@@ -72,7 +82,10 @@ func (w *Worker) Start(ctx context.Context) error {
 	w.running = true
 	w.mu.Unlock()
 
-	log.Printf("[Worker %s] Starting...", w.id)
+	w.logger.Info("Worker starting", logger.Fields{
+		"worker_id":     w.id,
+		"poll_interval": w.pollFreq.String(),
+	})
 
 	w.wg.Add(1)
 	go w.run(ctx)
@@ -92,22 +105,26 @@ func (w *Worker) run(ctx context.Context) {
 	ticker := time.NewTicker(w.pollFreq)
 	defer ticker.Stop()
 
-	log.Printf("[Worker %s] Polling queue every %v", w.id, w.pollFreq)
+	w.logger.Debug("Worker started polling", logger.Fields{
+		"poll_frequency": w.pollFreq.String(),
+	})
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("[Worker %s] Context cancelled, shutting down", w.id)
+			w.logger.Info("Worker context cancelled, shutting down")
 			return
 		case <-w.shutdownChan:
-			log.Printf("[Worker %s] Shutdown signal received", w.id)
+			w.logger.Info("Worker shutdown signal received")
 			return
 		case <-ticker.C:
 			// Poll the queue for a task
 			if err := w.pollAndExecute(ctx); err != nil {
 				// Log error but continue running
 				if err != queue.ErrNoTask {
-					log.Printf("[Worker %s] Error: %v", w.id, err)
+					w.logger.Error("Error polling and executing task", logger.Fields{
+						"error": err,
+					})
 				}
 			}
 		}
@@ -125,14 +142,22 @@ func (w *Worker) pollAndExecute(ctx context.Context) error {
 		return queue.ErrNoTask
 	}
 
-	log.Printf("[Worker %s] Picked up task %s (type: %s, attempt: %d/%d)",
-		w.id, t.ID, t.Type, t.RetryCount+1, t.MaxRetries+1)
+	w.logger.Info("Task picked up for execution", logger.Fields{
+		"task_id":      t.ID,
+		"type":         t.Type,
+		"priority":     int(t.Priority),
+		"attempt":      t.RetryCount + 1,
+		"max_attempts": t.MaxRetries + 1,
+	})
 
 	// Save task state as processing
 	t.MarkStarted()
 	if w.storage != nil {
 		if err := w.storage.SaveTask(ctx, t); err != nil {
-			log.Printf("[Worker %s] Failed to save task state: %v", w.id, err)
+			w.logger.Error("Failed to save task state", logger.Fields{
+				"task_id": t.ID,
+				"error":   err,
+			})
 		}
 	}
 
@@ -141,7 +166,12 @@ func (w *Worker) pollAndExecute(ctx context.Context) error {
 		w.mu.Lock()
 		w.tasksFailed++
 		w.mu.Unlock()
-		log.Printf("[Worker %s] Task %s failed: %v", w.id, t.ID, err)
+		w.logger.Warn("Task execution failed", logger.Fields{
+			"task_id": t.ID,
+			"type":    t.Type,
+			"error":   err,
+			"attempt": t.RetryCount + 1,
+		})
 
 		// Handle failure with retry/DLQ logic
 		return w.handleTaskFailure(ctx, t, err)
@@ -151,7 +181,10 @@ func (w *Worker) pollAndExecute(ctx context.Context) error {
 	w.tasksProcessed++
 	w.mu.Unlock()
 
-	log.Printf("[Worker %s] Task %s completed successfully", w.id, t.ID)
+	w.logger.Info("Task completed successfully", logger.Fields{
+		"task_id": t.ID,
+		"type":    t.Type,
+	})
 
 	// Mark task as completed (sets CompletedAt timestamp)
 	t.MarkCompleted()
@@ -159,7 +192,10 @@ func (w *Worker) pollAndExecute(ctx context.Context) error {
 	// Save completed task state
 	if w.storage != nil {
 		if err := w.storage.SaveTask(ctx, t); err != nil {
-			log.Printf("[Worker %s] Failed to save completed task state: %v", w.id, err)
+			w.logger.Error("Failed to save completed task state", logger.Fields{
+				"task_id": t.ID,
+				"error":   err,
+			})
 		}
 	}
 
@@ -174,7 +210,10 @@ func (w *Worker) handleTaskFailure(ctx context.Context, t *task.Task, execErr er
 	// Save updated task state
 	if w.storage != nil {
 		if err := w.storage.SaveTask(ctx, t); err != nil {
-			log.Printf("[Worker %s] Failed to save task state: %v", w.id, err)
+			w.logger.Error("Failed to save failed task state", logger.Fields{
+				"task_id": t.ID,
+				"error":   err,
+			})
 		}
 	}
 
@@ -187,8 +226,12 @@ func (w *Worker) handleTaskFailure(ctx context.Context, t *task.Task, execErr er
 
 		// Calculate retry delay
 		retryDelay := t.GetRetryDelay()
-		log.Printf("[Worker %s] Task %s will be retried in %v (attempt %d/%d)",
-			w.id, t.ID, retryDelay, t.RetryCount, t.MaxRetries)
+		w.logger.Info("Task will be retried", logger.Fields{
+			"task_id":     t.ID,
+			"delay":       retryDelay.String(),
+			"attempt":     t.RetryCount,
+			"max_retries": t.MaxRetries,
+		})
 
 		// Sleep for the retry delay (exponential backoff)
 		time.Sleep(retryDelay)
@@ -196,7 +239,10 @@ func (w *Worker) handleTaskFailure(ctx context.Context, t *task.Task, execErr er
 		// Re-enqueue the updated task (with incremented retry count)
 		// This ensures the retried task has the correct state
 		if err := w.queue.Enqueue(ctx, t); err != nil {
-			log.Printf("[Worker %s] Failed to re-enqueue task %s: %v", w.id, t.ID, err)
+			w.logger.Error("Failed to re-enqueue task for retry", logger.Fields{
+				"task_id": t.ID,
+				"error":   err,
+			})
 			return err
 		}
 
@@ -204,12 +250,18 @@ func (w *Worker) handleTaskFailure(ctx context.Context, t *task.Task, execErr er
 	}
 
 	// Task exceeded max retries, move to DLQ
-	log.Printf("[Worker %s] Task %s exceeded max retries (%d), moving to DLQ",
-		w.id, t.ID, t.MaxRetries)
+	w.logger.Warn("Task exceeded max retries, moving to DLQ", logger.Fields{
+		"task_id":     t.ID,
+		"max_retries": t.MaxRetries,
+		"type":        t.Type,
+	})
 
 	reason := fmt.Sprintf("Exceeded max retries (%d). Last error: %s", t.MaxRetries, execErr.Error())
 	if err := w.queue.EnqueueDLQ(ctx, t, reason); err != nil {
-		log.Printf("[Worker %s] Failed to move task %s to DLQ: %v", w.id, t.ID, err)
+		w.logger.Error("Failed to move task to DLQ", logger.Fields{
+			"task_id": t.ID,
+			"error":   err,
+		})
 	}
 
 	// Remove from main queue
@@ -251,7 +303,10 @@ func (w *Worker) executeTask(parentCtx context.Context, t *task.Task) error {
 					Duration:    duration,
 				}
 				if err := w.storage.SaveResult(parentCtx, timeoutResult); err != nil {
-					log.Printf("[Worker %s] Failed to save timeout result for task %s: %v", w.id, t.ID, err)
+					w.logger.Error("Failed to save timeout result", logger.Fields{
+						"task_id": t.ID,
+						"error":   err,
+					})
 				}
 			}
 
@@ -262,7 +317,10 @@ func (w *Worker) executeTask(parentCtx context.Context, t *task.Task) error {
 		if w.storage != nil && result != nil {
 			result.Duration = duration
 			if err := w.storage.SaveResult(parentCtx, result); err != nil {
-				log.Printf("[Worker %s] Failed to save error result for task %s: %v", w.id, t.ID, err)
+				w.logger.Error("Failed to save error result", logger.Fields{
+					"task_id": t.ID,
+					"error":   err,
+				})
 			}
 		}
 
@@ -277,7 +335,10 @@ func (w *Worker) executeTask(parentCtx context.Context, t *task.Task) error {
 		result.Duration = duration
 		result.CompletedAt = time.Now()
 		if err := w.storage.SaveResult(parentCtx, result); err != nil {
-			log.Printf("[Worker %s] Failed to save result for task %s: %v", w.id, t.ID, err)
+			w.logger.Error("Failed to save success result", logger.Fields{
+				"task_id": t.ID,
+				"error":   err,
+			})
 		}
 	}
 
@@ -298,10 +359,10 @@ func (w *Worker) Stop() error {
 	w.running = false
 	w.mu.Unlock()
 
-	log.Printf("[Worker %s] Stopping...", w.id)
+	w.logger.Info("Worker stopping")
 	close(w.shutdownChan)
 	w.wg.Wait()
-	log.Printf("[Worker %s] Stopped", w.id)
+	w.logger.Info("Worker stopped")
 	return nil
 }
 
@@ -315,7 +376,7 @@ func (w *Worker) Shutdown(ctx context.Context) error {
 	w.running = false
 	w.mu.Unlock()
 
-	log.Printf("[Worker %s] Shutting down...", w.id)
+	w.logger.Info("Worker shutting down gracefully")
 	close(w.shutdownChan)
 
 	// Wait for worker to finish with timeout
@@ -327,10 +388,10 @@ func (w *Worker) Shutdown(ctx context.Context) error {
 
 	select {
 	case <-done:
-		log.Printf("[Worker %s] Shutdown complete", w.id)
+		w.logger.Info("Worker shutdown complete")
 		return nil
 	case <-ctx.Done():
-		log.Printf("[Worker %s] Shutdown timeout", w.id)
+		w.logger.Warn("Worker shutdown timeout")
 		return ctx.Err()
 	}
 }
@@ -360,9 +421,13 @@ func (w *Worker) WaitForShutdown() {
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
 	sig := <-sigChan
-	log.Printf("[Worker %s] Received signal: %v", w.id, sig)
+	w.logger.Info("Shutdown signal received", logger.Fields{
+		"signal": sig.String(),
+	})
 
 	if err := w.Stop(); err != nil {
-		log.Printf("[Worker %s] Error during shutdown: %v", w.id, err)
+		w.logger.Error("Error during shutdown", logger.Fields{
+			"error": err,
+		})
 	}
 }
