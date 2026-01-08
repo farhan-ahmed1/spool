@@ -2,21 +2,25 @@ package worker
 
 import (
 	"context"
+	"time"
 
 	"github.com/farhan-ahmed1/spool/internal/monitoring"
 )
 
 // InstrumentedWorker wraps a Worker with metrics instrumentation
 type InstrumentedWorker struct {
-	worker  *Worker
-	metrics *monitoring.Metrics
+	worker         *Worker
+	metrics        *monitoring.Metrics
+	lastProcessed  int64
+	stopStatsSyncChan chan struct{}
 }
 
 // NewInstrumentedWorker creates a new instrumented worker
 func NewInstrumentedWorker(w *Worker, m *monitoring.Metrics) *InstrumentedWorker {
 	return &InstrumentedWorker{
-		worker:  w,
-		metrics: m,
+		worker:         w,
+		metrics:        m,
+		stopStatsSyncChan: make(chan struct{}),
 	}
 }
 
@@ -25,12 +29,45 @@ func (iw *InstrumentedWorker) Start(ctx context.Context) error {
 	// Register worker with metrics
 	iw.metrics.RegisterWorker(iw.worker.ID())
 
+	// Start periodic stats sync
+	go iw.syncStatsLoop(ctx)
+
 	// Start the worker
 	return iw.worker.Start(ctx)
 }
 
+// syncStatsLoop periodically syncs worker stats to metrics
+func (iw *InstrumentedWorker) syncStatsLoop(ctx context.Context) {
+	ticker := time.NewTicker(100 * time.Millisecond) // Sync every 100ms
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-iw.stopStatsSyncChan:
+			return
+		case <-ticker.C:
+			processed, _, _ := iw.worker.Stats()
+			
+			// Calculate how many tasks were completed since last sync
+			newTasks := processed - iw.lastProcessed
+			if newTasks > 0 {
+				// Record each completed task (approximate duration)
+				for i := int64(0); i < newTasks; i++ {
+					iw.metrics.RecordTaskCompleted(100 * time.Millisecond)
+				}
+				iw.lastProcessed = processed
+			}
+		}
+	}
+}
+
 // Stop stops the worker and updates metrics
 func (iw *InstrumentedWorker) Stop() error {
+	// Signal stats sync to stop
+	close(iw.stopStatsSyncChan)
+	
 	err := iw.worker.Stop()
 
 	// Unregister worker from metrics
@@ -66,6 +103,9 @@ func (iw *InstrumentedWorker) IsRunning() bool {
 
 // Shutdown gracefully stops the worker with timeout
 func (iw *InstrumentedWorker) Shutdown(ctx context.Context) error {
+	// Signal stats sync to stop
+	close(iw.stopStatsSyncChan)
+	
 	err := iw.worker.Shutdown(ctx)
 
 	// Unregister worker from metrics

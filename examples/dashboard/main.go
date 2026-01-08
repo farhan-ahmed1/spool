@@ -168,6 +168,22 @@ func main() {
 	// Start task generator to simulate realistic workload
 	go generateTasks(ctx, q, metrics)
 
+	// Start queue depth updater
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := metrics.UpdateQueueDepth(ctx); err != nil {
+					log.Printf("Failed to update queue depth: %v", err)
+				}
+			}
+		}
+	}()
+
 	// Display instructions
 	fmt.Println("\n" + strings.Repeat("=", 70))
 	fmt.Println("DASHBOARD DEMO RUNNING")

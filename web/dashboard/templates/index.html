@@ -482,8 +482,8 @@
             <!-- Task Processing Heatmap -->
             <div class="chart-container" style="margin-bottom: 0;">
                 <div class="chart-title">Processing Activity (Last 24 Hours)</div>
-                <div style="padding: 10px;">
-                    <canvas id="heatmapChart" width="400" height="200"></canvas>
+                <div style="padding: 20px;">
+                    <canvas id="heatmapChart" style="width: 100%; height: 250px;"></canvas>
                 </div>
             </div>
         </div>
@@ -752,6 +752,10 @@
         // Initialize heatmap
         function initHeatmap() {
             const canvas = document.getElementById('heatmapChart');
+            // Set canvas size based on container
+            const container = canvas.parentElement;
+            canvas.width = container.offsetWidth - 40;
+            canvas.height = 250;
             const ctx = canvas.getContext('2d');
             updateHeatmap(ctx);
         }
@@ -761,8 +765,11 @@
             const canvas = ctx.canvas;
             const width = canvas.width;
             const height = canvas.height;
-            const cellWidth = width / 24;
-            const cellHeight = height / 4;
+            const cellsPerRow = 6;
+            const rows = 4;
+            const cellWidth = width / cellsPerRow;
+            const cellHeight = height / rows;
+            const padding = 2;
 
             ctx.clearRect(0, 0, width, height);
 
@@ -772,31 +779,35 @@
             // Draw cells
             for (let i = 0; i < 24; i++) {
                 const intensity = heatmapData[i] / maxValue;
-                const row = Math.floor(i / 6);
-                const col = i % 6;
+                const row = Math.floor(i / cellsPerRow);
+                const col = i % cellsPerRow;
 
-                // Color based on intensity (blue to red gradient)
+                const x = col * cellWidth;
+                const y = row * cellHeight;
+
+                // Color based on intensity (blue gradient)
                 let color;
                 if (intensity < 0.25) {
-                    color = `rgba(219, 234, 254, ${0.3 + intensity * 2})`;
+                    color = `rgba(219, 234, 254, 0.5)`;
                 } else if (intensity < 0.5) {
-                    color = `rgba(147, 197, 253, ${0.4 + intensity})`;
+                    color = `rgba(147, 197, 253, 0.7)`;
                 } else if (intensity < 0.75) {
-                    color = `rgba(59, 130, 246, ${0.5 + intensity})`;
+                    color = `rgba(59, 130, 246, 0.85)`;
                 } else {
-                    color = `rgba(37, 99, 235, ${0.6 + intensity * 0.4})`;
+                    color = `rgba(37, 99, 235, 1)`;
                 }
 
                 ctx.fillStyle = color;
-                ctx.fillRect(col * cellWidth, row * cellHeight, cellWidth - 1, cellHeight - 1);
+                ctx.fillRect(x + padding, y + padding, cellWidth - padding * 2, cellHeight - padding * 2);
 
-                // Add hour label
-                ctx.fillStyle = '#374151';
-                ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                // Add hour label with better sizing
+                const fontSize = Math.min(cellWidth / 4, 16);
+                ctx.fillStyle = intensity > 0.5 ? '#ffffff' : '#374151';
+                ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 const hour = i.toString().padStart(2, '0') + ':00';
-                ctx.fillText(hour, col * cellWidth + cellWidth / 2, row * cellHeight + cellHeight / 2);
+                ctx.fillText(hour, x + cellWidth / 2, y + cellHeight / 2);
             }
         }
 
