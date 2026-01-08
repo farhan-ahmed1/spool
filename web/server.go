@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/farhan-ahmed1/spool/internal/logger"
 	"github.com/farhan-ahmed1/spool/internal/monitoring"
 	"github.com/farhan-ahmed1/spool/internal/queue"
 	"github.com/farhan-ahmed1/spool/internal/storage"
@@ -25,6 +25,7 @@ type Server struct {
 	addr     string
 	server   *http.Server
 	serverMu sync.RWMutex // Protects server field
+	logger   *logger.Logger
 	
 	// WebSocket connections
 	mu          sync.RWMutex
@@ -128,11 +129,20 @@ func NewServer(cfg Config) *Server {
 		cfg.Addr = ":8080"
 	}
 
+	// Create logger for dashboard server
+	dashboardLogger := logger.GetDefault()
+	if dashboardLogger == nil {
+		dashboardLogger = logger.New("info", "text", "dashboard")
+	} else {
+		dashboardLogger = dashboardLogger.WithComponent("dashboard")
+	}
+
 	return &Server{
 		metrics:        cfg.Metrics,
 		queue:          cfg.Queue,
 		storage:        cfg.Storage,
 		addr:           cfg.Addr,
+		logger:         dashboardLogger,
 		connections:    make(map[*connection]bool),
 		broadcast:      make(chan MetricsUpdate, 100),
 		taskEvents:     make(chan TaskEvent, 100),
@@ -188,7 +198,9 @@ func (s *Server) Start() error {
 	// Signal that server is ready
 	close(s.ready)
 	
-	log.Printf("[Dashboard] Starting server on %s", s.addr)
+	s.logger.Info("Starting dashboard server", logger.Fields{
+		"address": s.addr,
+	})
 	return server.ListenAndServe()
 }
 
@@ -231,7 +243,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	tmplPath := filepath.Join("web", "dashboard", "templates", "index.html")
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
-		log.Printf("[Dashboard] Error parsing template: %v", err)
+		s.logger.Error("Failed to parse template", logger.Fields{
+			"error": err.Error(),
+			"path":  tmplPath,
+		})
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -242,7 +257,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.Execute(w, data); err != nil {
-		log.Printf("[Dashboard] Error executing template: %v", err)
+		s.logger.Error("Failed to execute template", logger.Fields{
+			"error": err.Error(),
+		})
 	}
 }
 
@@ -257,7 +274,9 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(update); err != nil {
-		log.Printf("[Dashboard] Failed to encode metrics: %v", err)
+		s.logger.Error("Failed to encode metrics", logger.Fields{
+			"error": err.Error(),
+		})
 		http.Error(w, "Failed to encode metrics", http.StatusInternalServerError)
 	}
 }
@@ -481,7 +500,10 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(detail); err != nil {
-		log.Printf("[Dashboard] Failed to encode task detail: %v", err)
+		s.logger.Error("Failed to encode task detail", logger.Fields{
+			"error":   err.Error(),
+			"task_id": taskID,
+		})
 		http.Error(w, "Failed to encode task detail", http.StatusInternalServerError)
 	}
 }
@@ -649,7 +671,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(health); err != nil {
-		log.Printf("[Dashboard] Failed to encode health response: %v", err)
+		s.logger.Error("Failed to encode health response", logger.Fields{
+			"error": err.Error(),
+		})
 	}
 }
 
@@ -698,7 +722,9 @@ func (s *Server) collectMetrics() MetricsUpdate {
 	
 	// Update queue depth
 	if err := s.metrics.UpdateQueueDepth(ctx); err != nil {
-		log.Printf("[Dashboard] Failed to update queue depth: %v", err)
+		s.logger.Error("Failed to update queue depth", logger.Fields{
+			"error": err.Error(),
+		})
 	}
 	
 	snapshot := s.metrics.Snapshot()
@@ -823,7 +849,11 @@ func (s *Server) withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		log.Printf("[Dashboard] %s %s - %v", r.Method, r.URL.Path, time.Since(start))
+		s.logger.Debug("HTTP request", logger.Fields{
+			"method":   r.Method,
+			"path":     r.URL.Path,
+			"duration": time.Since(start).String(),
+		})
 	})
 }
 
