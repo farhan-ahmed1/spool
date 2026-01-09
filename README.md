@@ -1,6 +1,5 @@
 # Spool
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![Go Reference](https://pkg.go.dev/badge/github.com/farhan-ahmed1/spool.svg)](https://pkg.go.dev/github.com/farhan-ahmed1/spool)
 [![CI](https://github.com/farhan-ahmed1/spool/actions/workflows/ci.yml/badge.svg)](https://github.com/farhan-ahmed1/spool/actions)
 [![codecov](https://codecov.io/gh/farhan-ahmed1/spool/branch/main/graph/badge.svg)](https://codecov.io/gh/farhan-ahmed1/spool)
