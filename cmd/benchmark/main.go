@@ -14,10 +14,9 @@ func main() {
 	benchType := flag.String("type", "quick", "Benchmark type: quick, scalability, or profiled")
 	workers := flag.Int("workers", 4, "Number of workers")
 	tasks := flag.Int("tasks", 1000, "Number of tasks")
-	duration := flag.Int("duration", 30, "Duration in seconds")
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
 	memProfile := flag.String("memprofile", "", "Write memory profile to file")
-	
+
 	flag.Parse()
 
 	log.SetOutput(os.Stdout)
@@ -33,20 +32,20 @@ func main() {
 	case "quick":
 		fmt.Println("Running quick benchmark...")
 		err = load.RunQuickBenchmark()
-		
+
 	case "scalability":
 		fmt.Println("Running scalability test...")
 		err = load.RunScalabilityTest()
-		
+
 	case "profiled":
 		fmt.Println("Running profiled benchmark...")
 		err = load.RunProfiledBenchmark()
-		
+
 	case "custom":
-		fmt.Printf("Running custom benchmark: workers=%d, tasks=%d, duration=%ds\n",
-			*workers, *tasks, *duration)
-		err = runCustomBenchmark(*workers, *tasks, *duration, *cpuProfile, *memProfile)
-		
+		fmt.Printf("Running custom benchmark: workers=%d, tasks=%d\n",
+			*workers, *tasks)
+		err = runCustomBenchmark(*workers, *tasks, *cpuProfile, *memProfile)
+
 	default:
 		fmt.Printf("Unknown benchmark type: %s\n", *benchType)
 		fmt.Println("Available types: quick, scalability, profiled, custom")
@@ -61,7 +60,7 @@ func main() {
 	fmt.Println("\n✅ Benchmark completed successfully!")
 }
 
-func runCustomBenchmark(workers, tasks, durationSecs int, cpuProfile, memProfile string) error {
+func runCustomBenchmark(workers, tasks int, cpuProfile, memProfile string) error {
 	config := load.DefaultBenchmarkConfig()
 	config.WorkerCount = workers
 	config.TaskCount = tasks
@@ -84,7 +83,7 @@ func runCustomBenchmark(workers, tasks, durationSecs int, cpuProfile, memProfile
 	}
 
 	fmt.Println(results.String())
-	
+
 	if config.EnableProfiling {
 		fmt.Println("\nProfile files created:")
 		if cpuProfile != "" {

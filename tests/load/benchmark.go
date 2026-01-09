@@ -51,21 +51,21 @@ func DefaultBenchmarkConfig() *BenchmarkConfig {
 
 // BenchmarkResults holds the results of a benchmark run
 type BenchmarkResults struct {
-	TotalTasks       int64
-	CompletedTasks   int64
-	FailedTasks      int64
-	Duration         time.Duration
-	TasksPerSecond   float64
-	AvgLatency       time.Duration
-	P50Latency       time.Duration
-	P95Latency       time.Duration
-	P99Latency       time.Duration
-	MinLatency       time.Duration
-	MaxLatency       time.Duration
-	MemAllocated     uint64
-	MemAllocTotal    uint64
-	GoroutineCount   int
-	ErrorRate        float64
+	TotalTasks     int64
+	CompletedTasks int64
+	FailedTasks    int64
+	Duration       time.Duration
+	TasksPerSecond float64
+	AvgLatency     time.Duration
+	P50Latency     time.Duration
+	P95Latency     time.Duration
+	P99Latency     time.Duration
+	MinLatency     time.Duration
+	MaxLatency     time.Duration
+	MemAllocated   uint64
+	MemAllocTotal  uint64
+	GoroutineCount int
+	ErrorRate      float64
 }
 
 // String returns a formatted string of the results
@@ -121,13 +121,13 @@ type BenchmarkRunner struct {
 	client   *redis.Client
 
 	// Metrics
-	startTime    time.Time
-	endTime      time.Time
-	latencies    []time.Duration
-	latenciesMu  sync.Mutex
-	tasksEnq     atomic.Int64
-	tasksComp    atomic.Int64
-	tasksFail    atomic.Int64
+	startTime   time.Time
+	endTime     time.Time
+	latencies   []time.Duration
+	latenciesMu sync.Mutex
+	tasksEnq    atomic.Int64
+	tasksComp   atomic.Int64
+	tasksFail   atomic.Int64
 }
 
 // NewBenchmarkRunner creates a new benchmark runner
@@ -572,7 +572,8 @@ func RunScalabilityTest() error {
 	workerCounts := []int{1, 2, 4, 8, 16}
 	taskCount := 2000
 
-	fmt.Println("=== Scalability Test ===\n")
+	fmt.Println("=== Scalability Test ===")
+	fmt.Println()
 
 	for _, workers := range workerCounts {
 		config := DefaultBenchmarkConfig()
