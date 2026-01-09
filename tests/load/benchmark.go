@@ -124,7 +124,6 @@ type BenchmarkRunner struct {
 	startTime   time.Time
 	endTime     time.Time
 	latencies   []time.Duration
-	latenciesMu sync.Mutex
 	tasksEnq    atomic.Int64
 	tasksComp   atomic.Int64
 	tasksFail   atomic.Int64

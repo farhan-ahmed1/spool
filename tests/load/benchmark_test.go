@@ -220,7 +220,9 @@ func BenchmarkDequeueOnly(b *testing.B) {
 			Message: fmt.Sprintf("Task %d", i),
 			Number:  i,
 		})
-		q.Enqueue(ctx, t)
+		if err := q.Enqueue(ctx, t); err != nil {
+			b.Fatalf("Failed to enqueue task: %v", err)
+		}
 	}
 
 	b.ResetTimer()
@@ -247,18 +249,24 @@ func BenchmarkTaskProcessing(b *testing.B) {
 			defer cleanupBenchmarkEnvironment(q, workers, client)
 
 			// Register handler with payload processing
-			registry.Register("payload_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+			if err := registry.Register("payload_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 				var data map[string]interface{}
-				json.Unmarshal(payload, &data)
+				if err := json.Unmarshal(payload, &data); err != nil {
+					return nil, err
+				}
 				// Simulate some processing
 				return data, nil
-			})
+			}); err != nil {
+				b.Fatalf("Failed to register handler: %v", err)
+			}
 
 			ctx := context.Background()
 
 			// Start workers
 			for _, w := range workers {
-				w.Start(ctx)
+				if err := w.Start(ctx); err != nil {
+					b.Fatalf("Failed to start worker: %v", err)
+				}
 			}
 			time.Sleep(100 * time.Millisecond)
 
@@ -271,7 +279,9 @@ func BenchmarkTaskProcessing(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				t, _ := task.NewTask("payload_task", payload)
-				q.Enqueue(ctx, t)
+				if err := q.Enqueue(ctx, t); err != nil {
+					b.Fatalf("Failed to enqueue task: %v", err)
+				}
 			}
 
 			// Wait for completion
