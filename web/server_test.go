@@ -1499,3 +1499,608 @@ type mockStorageWithError struct {
 func (m *mockStorageWithError) GetTasksByState(ctx context.Context, state task.State, limit int) ([]*task.Task, error) {
 	return nil, assert.AnError
 }
+
+// ============================================================
+// handleDashboard Tests - Improved Coverage (23.1% -> 80%+)
+// ============================================================
+
+// TestHandleDashboardRootPath tests dashboard at root path with template
+func TestHandleDashboardRootPath(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+
+	// This will fail to parse template since we don't have the actual template file
+	// but it tests the template parsing error path
+	server.handleDashboard(w, req)
+
+	// Should return 500 when template is not found
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// TestHandleDashboardNonRootPathVariations tests various non-root paths return 404
+func TestHandleDashboardNonRootPathVariations(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	testPaths := []string{
+		"/index",
+		"/dashboard",
+		"/home",
+		"/test",
+		"/api",
+		"/static",
+		"/favicon.ico",
+		"/robots.txt",
+	}
+
+	for _, path := range testPaths {
+		t.Run("path_"+path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			w := httptest.NewRecorder()
+
+			server.handleDashboard(w, req)
+
+			assert.Equal(t, http.StatusNotFound, w.Code, "Path %s should return 404", path)
+		})
+	}
+}
+
+// TestHandleDashboardDifferentMethods tests dashboard with different HTTP methods
+func TestHandleDashboardDifferentMethods(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	methods := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}
+
+	for _, method := range methods {
+		t.Run("method_"+method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/", nil)
+			w := httptest.NewRecorder()
+
+			// Will fail on template but tests the code path
+			server.handleDashboard(w, req)
+
+			// Template error returns 500 for root path
+			assert.Equal(t, http.StatusInternalServerError, w.Code)
+		})
+	}
+}
+
+// ============================================================
+// handleTasks Tests - Improved Coverage (60% -> 80%+)
+// ============================================================
+
+// TestHandleTasksWithMultipleStates tests task retrieval with various task states
+func TestHandleTasksWithMultipleStates(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	// Create tasks in all states
+	completedTask, _ := task.NewTask("completed-task", map[string]interface{}{"key": "value"})
+	completedTask.State = task.StateCompleted
+	now := time.Now()
+	completedTask.CompletedAt = &now
+
+	failedTask, _ := task.NewTask("failed-task", map[string]interface{}{"key": "value"})
+	failedTask.State = task.StateFailed
+	failedTask.Error = "Test error"
+
+	processingTask, _ := task.NewTask("processing-task", map[string]interface{}{"key": "value"})
+	processingTask.State = task.StateProcessing
+	processingTask.MarkStarted()
+
+	pendingTask, _ := task.NewTask("pending-task", map[string]interface{}{"key": "value"})
+	pendingTask.State = task.StatePending
+
+	storage := &mockStorageWithTasks{
+		tasks: []*task.Task{completedTask, failedTask, processingTask, pendingTask},
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, "tasks")
+	assert.Contains(t, body, "total")
+}
+
+// TestHandleTasksWithEmptyStorage tests when storage returns empty results
+func TestHandleTasksWithEmptyStorage(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	storage := &mockStorageWithTasks{
+		tasks: []*task.Task{},
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"total":0`)
+}
+
+// TestHandleTasksWithPartialStorageErrors tests when some state queries fail
+func TestHandleTasksWithPartialStorageErrors(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	// Create a storage that returns tasks for some states and errors for others
+	completedTask, _ := task.NewTask("completed-task", nil)
+	completedTask.State = task.StateCompleted
+
+	storage := &mockStoragePartialError{
+		completedTasks:  []*task.Task{completedTask},
+		failedTasks:     nil,
+		processingTasks: nil,
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	// Should still return the completed tasks that succeeded
+	assert.Contains(t, w.Body.String(), "tasks")
+}
+
+// TestHandleTasksWithDifferentPriorities tests tasks with various priority levels
+func TestHandleTasksWithDifferentPriorities(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	// Create tasks with different priorities
+	lowTask, _ := task.NewTask("low-task", nil)
+	lowTask.Priority = task.PriorityLow
+	lowTask.State = task.StateCompleted
+
+	highTask, _ := task.NewTask("high-task", nil)
+	highTask.Priority = task.PriorityHigh
+	highTask.State = task.StateCompleted
+
+	criticalTask, _ := task.NewTask("critical-task", nil)
+	criticalTask.Priority = task.PriorityCritical
+	criticalTask.State = task.StateCompleted
+
+	storage := &mockStorageWithTasks{
+		tasks: []*task.Task{lowTask, highTask, criticalTask},
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"priority":0`) // Low
+	assert.Contains(t, body, `"priority":2`) // High
+	assert.Contains(t, body, `"priority":3`) // Critical
+}
+
+// TestHandleTasksWithMetadata tests tasks containing metadata
+func TestHandleTasksWithMetadata(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	taskWithMeta, _ := task.NewTask("meta-task", map[string]interface{}{
+		"key": "value",
+	})
+	taskWithMeta.State = task.StateCompleted
+	taskWithMeta.Metadata = map[string]interface{}{
+		"user_id":    "12345",
+		"request_id": "abc-123",
+		"custom":     map[string]interface{}{"nested": true},
+	}
+
+	storage := &mockStorageWithTasks{
+		tasks: []*task.Task{taskWithMeta},
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, "metadata")
+	assert.Contains(t, body, "user_id")
+}
+
+// TestHandleTasksWithRetries tests tasks with retry information
+func TestHandleTasksWithRetries(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	retriedTask, _ := task.NewTask("retried-task", nil)
+	retriedTask.State = task.StateFailed
+	retriedTask.MaxRetries = 5
+	retriedTask.RetryCount = 3
+	retriedTask.Error = "Connection timeout"
+
+	storage := &mockStorageWithTasks{
+		tasks: []*task.Task{retriedTask},
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"retryCount":3`)
+	assert.Contains(t, body, `"maxRetries":5`)
+	assert.Contains(t, body, "Connection timeout")
+}
+
+// TestHandleTasksWithTimestamps tests tasks with various timestamps
+func TestHandleTasksWithTimestamps(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	taskWithTimes, _ := task.NewTask("timed-task", nil)
+	taskWithTimes.State = task.StateCompleted
+	taskWithTimes.CreatedAt = time.Now().Add(-5 * time.Minute)
+	startedAt := time.Now().Add(-4 * time.Minute)
+	taskWithTimes.StartedAt = &startedAt
+	completedAt := time.Now().Add(-3 * time.Minute)
+	taskWithTimes.CompletedAt = &completedAt
+
+	storage := &mockStorageWithTasks{
+		tasks: []*task.Task{taskWithTimes},
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTasks(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, "createdAt")
+	assert.Contains(t, body, "startedAt")
+	assert.Contains(t, body, "completedAt")
+}
+
+// TestHandleTasksQueryParameters tests with query parameters (future pagination support)
+func TestHandleTasksQueryParameters(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	// Test with various query params
+	testCases := []string{
+		"/api/tasks",
+		"/api/tasks?limit=10",
+		"/api/tasks?offset=0",
+		"/api/tasks?limit=10&offset=5",
+		"/api/tasks?state=completed",
+		"/api/tasks?type=email",
+	}
+
+	for _, url := range testCases {
+		t.Run("url_"+url, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			w := httptest.NewRecorder()
+
+			server.handleTasks(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code)
+		})
+	}
+}
+
+// TestHandleTaskDetailWithPayload tests task detail with full payload
+func TestHandleTaskDetailWithPayload(t *testing.T) {
+	q := &mockQueue{healthy: true}
+	metrics := monitoring.NewMetrics(q)
+
+	testTask, _ := task.NewTask("test-task", map[string]interface{}{
+		"email":   "test@example.com",
+		"subject": "Test Subject",
+		"body":    "This is a test body",
+	})
+	testTask.State = task.StateCompleted
+
+	storage := &mockStorage{
+		tasks: map[string]*task.Task{
+			testTask.ID: testTask,
+		},
+	}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks/"+testTask.ID, nil)
+	w := httptest.NewRecorder()
+
+	server.handleTaskDetail(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, "payload")
+	assert.Contains(t, body, "test@example.com")
+}
+
+// ============================================================
+// Additional Mock Types for Testing
+// ============================================================
+
+// mockStorageWithTasks provides task data for testing
+type mockStorageWithTasks struct {
+	tasks []*task.Task
+}
+
+func (m *mockStorageWithTasks) SaveTask(ctx context.Context, t *task.Task) error {
+	m.tasks = append(m.tasks, t)
+	return nil
+}
+
+func (m *mockStorageWithTasks) GetTask(ctx context.Context, id string) (*task.Task, error) {
+	for _, t := range m.tasks {
+		if t.ID == id {
+			return t, nil
+		}
+	}
+	return nil, assert.AnError
+}
+
+func (m *mockStorageWithTasks) DeleteTask(ctx context.Context, id string) error {
+	return nil
+}
+
+func (m *mockStorageWithTasks) UpdateTaskState(ctx context.Context, taskID string, state task.State) error {
+	return nil
+}
+
+func (m *mockStorageWithTasks) SaveResult(ctx context.Context, result *task.Result) error {
+	return nil
+}
+
+func (m *mockStorageWithTasks) GetResult(ctx context.Context, taskID string) (*task.Result, error) {
+	return nil, nil
+}
+
+func (m *mockStorageWithTasks) GetTasksByState(ctx context.Context, state task.State, limit int) ([]*task.Task, error) {
+	var result []*task.Task
+	for _, t := range m.tasks {
+		if t.State == state {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockStorageWithTasks) Close() error { return nil }
+
+// mockStoragePartialError returns errors for some states
+type mockStoragePartialError struct {
+	completedTasks  []*task.Task
+	failedTasks     []*task.Task
+	processingTasks []*task.Task
+}
+
+func (m *mockStoragePartialError) SaveTask(ctx context.Context, t *task.Task) error {
+	return nil
+}
+
+func (m *mockStoragePartialError) GetTask(ctx context.Context, id string) (*task.Task, error) {
+	return nil, assert.AnError
+}
+
+func (m *mockStoragePartialError) DeleteTask(ctx context.Context, id string) error {
+	return nil
+}
+
+func (m *mockStoragePartialError) UpdateTaskState(ctx context.Context, taskID string, state task.State) error {
+	return nil
+}
+
+func (m *mockStoragePartialError) SaveResult(ctx context.Context, result *task.Result) error {
+	return nil
+}
+
+func (m *mockStoragePartialError) GetResult(ctx context.Context, taskID string) (*task.Result, error) {
+	return nil, nil
+}
+
+func (m *mockStoragePartialError) GetTasksByState(ctx context.Context, state task.State, limit int) ([]*task.Task, error) {
+	switch state {
+	case task.StateCompleted:
+		return m.completedTasks, nil
+	case task.StateFailed:
+		if m.failedTasks == nil {
+			return nil, assert.AnError
+		}
+		return m.failedTasks, nil
+	case task.StateProcessing:
+		if m.processingTasks == nil {
+			return nil, assert.AnError
+		}
+		return m.processingTasks, nil
+	}
+	return nil, nil
+}
+
+func (m *mockStoragePartialError) Close() error { return nil }
+
+// ============================================================
+// DLQ Handler Tests - Additional Coverage
+// ============================================================
+
+// TestHandleDLQWithMultipleTasks tests DLQ with multiple tasks
+func TestHandleDLQWithMultipleTasks(t *testing.T) {
+	// Create multiple DLQ tasks
+	dlqTasks := make([]*task.Task, 5)
+	for i := 0; i < 5; i++ {
+		dlqTask, _ := task.NewTask(fmt.Sprintf("dlq-task-%d", i), nil)
+		dlqTask.State = task.StateDeadLetter
+		dlqTask.Error = fmt.Sprintf("Error %d", i)
+		dlqTask.RetryCount = 3
+		dlqTask.MaxRetries = 3
+		dlqTasks[i] = dlqTask
+	}
+
+	q := &mockQueue{
+		healthy:  true,
+		dlqTasks: dlqTasks,
+	}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/dlq", nil)
+	w := httptest.NewRecorder()
+
+	server.handleDLQ(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"total":5`)
+	assert.Contains(t, body, "dead_letter")
+}
+
+// TestHandleDLQEmpty tests DLQ when empty
+func TestHandleDLQEmpty(t *testing.T) {
+	q := &mockQueue{
+		healthy:  true,
+		dlqTasks: []*task.Task{},
+	}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/dlq", nil)
+	w := httptest.NewRecorder()
+
+	server.handleDLQ(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"total":0`)
+}
+
+// TestHandleDLQWithTimestamps tests DLQ tasks with timestamps
+func TestHandleDLQWithTimestamps(t *testing.T) {
+	dlqTask, _ := task.NewTask("dlq-task", nil)
+	dlqTask.State = task.StateDeadLetter
+	startedAt := time.Now().Add(-5 * time.Minute)
+	dlqTask.StartedAt = &startedAt
+	completedAt := time.Now().Add(-4 * time.Minute)
+	dlqTask.CompletedAt = &completedAt
+
+	q := &mockQueue{
+		healthy:  true,
+		dlqTasks: []*task.Task{dlqTask},
+	}
+	metrics := monitoring.NewMetrics(q)
+	storage := &mockStorage{}
+
+	server := NewServer(Config{
+		Metrics: metrics,
+		Queue:   q,
+		Storage: storage,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/dlq", nil)
+	w := httptest.NewRecorder()
+
+	server.handleDLQ(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, "startedAt")
+	assert.Contains(t, body, "completedAt")
+}
