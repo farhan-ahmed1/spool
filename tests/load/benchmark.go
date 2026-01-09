@@ -121,12 +121,12 @@ type BenchmarkRunner struct {
 	client   *redis.Client
 
 	// Metrics
-	startTime   time.Time
-	endTime     time.Time
-	latencies   []time.Duration
-	tasksEnq    atomic.Int64
-	tasksComp   atomic.Int64
-	tasksFail   atomic.Int64
+	startTime time.Time
+	endTime   time.Time
+	latencies []time.Duration
+	tasksEnq  atomic.Int64
+	tasksComp atomic.Int64
+	tasksFail atomic.Int64
 }
 
 // NewBenchmarkRunner creates a new benchmark runner
