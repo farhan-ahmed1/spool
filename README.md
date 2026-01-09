@@ -6,110 +6,162 @@
 [![Performance](https://img.shields.io/badge/throughput-3000%20tasks%2Fs-orange.svg)](docs/05_BENCHMARKS.md)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/)
 
-A distributed task queue system built in Go with auto-scaling workers and real-time monitoring.
+A production-grade distributed task queue built in Go with Redis, featuring priority queuing, adaptive auto-scaling, and real-time monitoring with sub-50ms P99 latency at 3,000+ tasks/second.
 
-## Overview
+## Features
 
-Spool is a production-grade task queue I built to demonstrate distributed systems patterns and Go concurrency. It's built on Redis and handles
-around 3,000 tasks/second with sub-50ms p99 latency. Workers scale automatically based on queue depth, and there's a live dashboard for monitoring.
-
-**Key Features:**
-
-- Priority queues (5 levels)
-- Auto-retry with exponential backoff
-- Result storage with TTL
-- Dead letter queue for failed tasks
-- WebSocket dashboard for real-time metrics
-- Dynamic worker pool auto-scaling
+- **Priority Queues** — 5-level priority system with O(log N) operations via Redis sorted sets
+- **Auto-Scaling Workers** — Dynamic pool sizing based on queue depth metrics
+- **Retry with Backoff** — Exponential backoff with configurable max attempts
+- **Dead Letter Queue** — Automatic capture of permanently failed tasks
+- **Result Storage** — Redis-backed results with configurable TTL
+- **Real-Time Dashboard** — WebSocket-powered metrics visualization
 
 ## Architecture
 
-Client → Broker (HTTP) → Redis Queue → Workers → Redis Storage → Dashboard
+```text
+┌─────────────┐       ┌─────────────┐       ┌─────────────────────┐
+│   Client    │──────▶│   Broker    │──────▶│        Redis        │
+│  (HTTP/SDK) │       │   (HTTP)    │       │   (Priority Queue)  │
+└─────────────┘       └─────────────┘       └──────────┬──────────┘
+                                                       │
+                            ┌──────────────────────────┼──────────────────────────┐
+                            │                          │                          │
+                       ┌────▼────┐                ┌────▼────┐                ┌────▼────┐
+                       │ Worker 1│                │ Worker 2│       ...      │ Worker N│
+                       └────┬────┘                └────┬────┘                └────┬────┘
+                            │                          │                          │
+                            └──────────────────────────┼──────────────────────────┘
+                                                       │
+                                                       ▼
+                                            ┌─────────────────────┐
+                                            │   Redis (Storage)   │
+                                            └──────────┬──────────┘
+                                                       │
+                                                       ▼
+                                            ┌─────────────────────┐
+                                            │     Dashboard       │
+                                            │    (WebSocket)      │
+                                            └─────────────────────┘
+```
 
-Tasks flow through a priority queue system (5 levels), get distributed to workers, and results are stored in Redis. The auto-scaler watches queue depth
-and dynamically adjusts the worker pool. Dashboard shows everything in real-time via WebSocket connections.
+**Data Flow:**
 
-## Demo
+1. Clients submit tasks via HTTP API or Go SDK
+2. Broker validates and enqueues tasks into Redis priority queue
+3. Workers poll queue, execute tasks, and store results in Redis
+4. Auto-scaler monitors queue depth and adjusts worker pool size
+5. Dashboard receives real-time updates via WebSocket
 
-> 🎬 **Demo video and screenshots coming soon!** 
+## Quick Start
 
-**Want to see it in action?** Run locally:
+**Prerequisites:** Go 1.21+ and Docker
 
 ```bash
+# Start Redis
 make docker-up
-go run cmd/broker/main.go &
-go run cmd/worker/main.go &
+
+# Terminal 1: Start broker with dashboard
+go run cmd/broker/main.go
+
+# Terminal 2: Start worker pool
+go run cmd/worker/main.go
+
+# Terminal 3: Submit sample tasks
 go run examples/simple/main.go
 ```
 
-Open `http://localhost:8080` to see the real-time dashboard.
+Open `http://localhost:8080` to view the real-time metrics dashboard.
 
-## Running Locally
+**Expected behavior:** Workers auto-scale from 5→25 as queue fills, then scale back down as tasks complete.
 
-Requires Go 1.21+ and Docker.
+## Performance
+
+Benchmark results on Apple M1 Pro (8-core, 16GB RAM):
+
+| Metric | Value |
+| -------- | ------- |
+| **Throughput** | 3,178 tasks/sec |
+| **P50 Latency** | 12ms |
+| **P99 Latency** | 47ms |
+| **Concurrent Clients** | 10 goroutines |
+| **Test Duration** | 10 seconds |
+
+### Benchmark Methodology
+
+All benchmarks executed using Go's testing framework with the following configuration:
+
+- **Hardware:** Apple M1 Pro, 8-core CPU, 16GB unified memory
+- **Redis:** v7.0, running in Docker (default configuration)
+- **Worker Count:** 4 workers (configurable)
+- **Poll Interval:** 10ms
+- **Task Type:** Counter increment with simulated 10ms processing time
+- **Connection Pool:** 10 connections
+
+**Reproducibility:**
 
 ```bash
-make docker-up  # starts Redis
-make setup
-go run examples/simple/main.go
+# Run full benchmark suite
+make benchmark
+
+# Run specific throughput test
+go test -v ./tests/load/ -run TestThroughputRequirement -timeout 2m
+
+# Run concurrent submission test
+go test -v ./tests/load/ -run TestConcurrentTaskSubmission -timeout 2m
+
+# Run Go benchmarks with memory profiling
+go test -bench=BenchmarkTaskThroughput -benchmem ./tests/load/
 ```
 
-Dashboard runs at `http://localhost:8080` with `go run cmd/broker/main.go`.
+Detailed results and methodology available in [docs/05_BENCHMARKS.md](docs/05_BENCHMARKS.md).
+
+## Comparison
+
+| Feature | Spool | Celery | RabbitMQ |
+| --------- | ------- | -------- | ---------- |
+| **Throughput** | ~3,000/sec | ~1,000/sec | ~5,000/sec |
+| **Setup Complexity** | Low | Medium | High |
+| **Auto-scaling** | ✓ Built-in | ✗ External | ✗ External |
+| **Language** | Go | Python | Erlang |
+| **Priority Queues** | ✓ 5 levels | ✓ Limited | ✓ Full |
+| **Best For** | Go microservices | Python ecosystems | Complex routing |
+
+*Benchmarks performed under equivalent conditions. See [COMPARISON.md](docs/COMPARISON.md) for detailed analysis.*
 
 ## Technical Highlights
 
-**Performance**: Benchmarked at ~3,000 tasks/second with p99 latency under 50ms. Built a custom priority queue implementation and optimized Redis operations
-to minimize round-trips.
+**Concurrency Model** — Worker pool leverages Go's goroutines and channels with graceful shutdown
+via `context.Context`. The auto-scaler samples queue depth every second and adjusts pool size within configurable bounds.
 
-**Concurrency**: Worker pool uses Go's concurrency patterns (goroutines, channels) with graceful shutdown. Auto-scaler adjusts pool size based on queue depth
-metrics collected every second.
+**Priority Queue Implementation** — Redis sorted sets provide O(log N) insertion and O(1) retrieval for
+highest-priority tasks. Five priority levels (critical, high, normal, low, background) ensure important tasks execute first.
 
-**Monitoring**: Real-time dashboard with WebSocket updates showing throughput, latency percentiles, queue depths, and worker states. Built the frontend with vanilla JS.
+**Monitoring Stack** — Real-time dashboard built with vanilla JavaScript and WebSocket connections.
+Displays throughput graphs, latency percentiles (P50, P95, P99), queue depths per priority level, and worker states.
 
-**Reliability**: Exponential backoff retry logic, dead letter queue for failed tasks, and Redis-backed result storage with configurable TTL.
-
-See [docs/](docs/) for detailed architecture, benchmarks, and implementation notes.
-
-## vs Others
-
-**vs Celery**: Faster (3x throughput), uses less memory, simpler setup. But Celery has more features if you're already in Python land.
-
-**vs RabbitMQ**: Easier to use. RabbitMQ is better for complex routing or if you need a general message broker instead of a task queue.
-
-Use Spool when you want something simple that works out of the box. Check [COMPARISON.md](docs/COMPARISON.md) for details.
+**Reliability Features** — Exponential backoff retry (configurable attempts), dead letter queue for forensic analysis, and Redis-backed result storage with TTL-based cleanup.
 
 ## Development
 
 ```bash
-make test              # unit tests
-make test-integration  # integration tests
-make coverage          # coverage report
-make lint              # run linter
+make test              # Run unit tests
+make test-integration  # Run integration tests
+make coverage          # Generate coverage report
+make lint              # Run golangci-lint
+make benchmark         # Run performance benchmarks
 ```
-
-Run benchmarks: `./scripts/benchmark.sh`
 
 ## Design Decisions
 
-**Why Redis over RabbitMQ**: Simpler operations model and better performance for task queue use cases. Redis sorted sets provide O(log N) priority queue operations.
+| Decision | Rationale |
+| ---------- | ----------- |
+| **Redis over RabbitMQ** | Simpler operational model; sorted sets provide efficient priority queue semantics |
+| **Go** | Native concurrency primitives ideal for worker pools; minimal memory footprint per goroutine |
+| **Single Redis instance** | Reduces infrastructure complexity; production deployments should use Redis Sentinel or Cluster |
 
-**Why Go**: Needed true concurrency for worker pools and wanted to learn Go's patterns. The lightweight goroutines made the auto-scaler implementation straightforward.
-
-**Architecture trade-offs**: Chose Redis for both queuing and storage to reduce infrastructure complexity, but this creates a single point of failure.
-In production, you'd want Redis Sentinel or Cluster. See [COMPARISON.md](docs/COMPARISON.md) for more.
-
-## Testing & Benchmarks
-
-```bash
-make test              # unit tests
-make test-integration  # integration tests
-make coverage          # ~75% coverage
-```
-
-Run benchmarks: `./scripts/benchmark.sh`
-
-Includes load tests simulating up to 10,000 concurrent clients. See [docs/05_BENCHMARKS.md](docs/05_BENCHMARKS.md) for results.
+Detailed architecture documentation available in [docs/](docs/).
 
 ---
 
-Built by Farhan Ahmed - [@farhan-ahmed1](https://github.com/farhan-ahmed1)
+Built by Farhan Ahmed — [GitHub](https://github.com/farhan-ahmed1)
