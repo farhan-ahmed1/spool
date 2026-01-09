@@ -1,10 +1,11 @@
 # Spool
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![Go Reference](https://pkg.go.dev/badge/github.com/farhan-ahmed1/spool.svg)](https://pkg.go.dev/github.com/farhan-ahmed1/spool)
+[![CI](https://github.com/farhan-ahmed1/spool/actions/workflows/ci.yml/badge.svg)](https://github.com/farhan-ahmed1/spool/actions)
+[![codecov](https://codecov.io/gh/farhan-ahmed1/spool/branch/main/graph/badge.svg)](https://codecov.io/gh/farhan-ahmed1/spool)
+[![Go Report Card](https://goreportcard.com/badge/github.com/farhan-ahmed1/spool)](https://goreportcard.com/report/github.com/farhan-ahmed1/spool)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Code Coverage](https://img.shields.io/badge/coverage-75%25-brightgreen.svg)](docs/04_COVERAGE_REPORT.md)
-[![Performance](https://img.shields.io/badge/throughput-3000%20tasks%2Fs-orange.svg)](docs/05_BENCHMARKS.md)
-[![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/)
 
 A distributed task queue built in Go with Redis, featuring priority queuing, adaptive auto-scaling, and real-time monitoring with sub-50ms P99 latency at 3,000+ tasks/second.
 
