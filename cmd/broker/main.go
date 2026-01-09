@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	fmt.Println("🚀 Spool Broker starting...")
+	fmt.Println(" Spool Broker starting...")
 
 	// TODO: Initialize broker components
 	// - Load configuration

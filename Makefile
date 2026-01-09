@@ -25,7 +25,7 @@ setup:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/redis/go-redis/v9@latest
 	
-	@echo "✅ Setup complete!"
+	@echo "Setup complete!"
 
 # Build all binaries
 build:
@@ -34,14 +34,14 @@ build:
 	go build -o bin/broker ./cmd/broker
 	go build -o bin/worker ./cmd/worker
 	go build -o bin/client ./cmd/client
-	@echo "✅ Build complete! Binaries in ./bin/"
+	@echo "Build complete! Binaries in ./bin/"
 
 # Run tests
 test:
 	@echo "Running tests..."
 	go test -v -race -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
-	@echo "✅ Tests complete! Coverage report: coverage.html"
+	@echo "Tests complete! Coverage report: coverage.html"
 
 # Run integration tests
 test-integration:
@@ -52,7 +52,7 @@ test-integration:
 lint:
 	@echo "Running linters..."
 	@$$(go env GOPATH)/bin/golangci-lint run ./...
-	@echo "✅ Linting complete!"
+	@echo "Linting complete!"
 
 # Run broker
 run-broker:
@@ -81,13 +81,13 @@ dev:
 docker-up:
 	@echo "Starting Docker services..."
 	docker-compose -f deployments/docker-compose.yml up -d
-	@echo "✅ Redis running on localhost:6379"
+	@echo "Redis running on localhost:6379"
 
 # Stop Docker services
 docker-down:
 	@echo "Stopping Docker services..."
 	docker-compose -f deployments/docker-compose.yml down
-	@echo "✅ Services stopped"
+	@echo "Services stopped"
 
 # Run benchmarks
 benchmark:
@@ -100,16 +100,16 @@ clean:
 	rm -rf bin/
 	rm -f coverage.out coverage.html
 	go clean
-	@echo "✅ Clean complete!"
+	@echo "Clean complete!"
 
 # Format code
 fmt:
 	@echo "Formatting code..."
 	go fmt ./...
-	@echo "✅ Format complete!"
+	@echo "Format complete!"
 
 # Generate mocks (for testing)
 generate:
 	@echo "Generating code..."
 	go generate ./...
-	@echo "✅ Generation complete!"
+	@echo "Generation complete!"

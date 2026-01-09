@@ -39,11 +39,11 @@ go run cmd/benchmark/main.go -type profiled
 
 # Custom test
 go run cmd/benchmark/main.go -type custom \
-    -workers 8 \
-    -tasks 10000 \
-    -duration 60 \
-    -cpuprofile cpu.prof \
-    -memprofile mem.prof
+  -workers 8 \
+  -tasks 10000 \
+  -duration 60 \
+  -cpuprofile cpu.prof \
+  -memprofile mem.prof
 ```
 
 ### 3. Automation Script (`scripts/benchmark.sh`)
@@ -76,9 +76,9 @@ go test -bench=BenchmarkTaskThroughput -benchmem ./tests/load/
 
 # With profiling
 go test -bench=. -benchmem \
-    -cpuprofile=cpu.prof \
-    -memprofile=mem.prof \
-    ./tests/load/
+  -cpuprofile=cpu.prof \
+  -memprofile=mem.prof \
+  ./tests/load/
 ```
 
 ## Benchmark Types
@@ -161,9 +161,9 @@ go tool pprof -alloc_space -text -nodecount=20 mem.prof
 
 # Interactive analysis
 go tool pprof cpu.prof
-> top      # Show top functions
-> list <function>  # Show function code
-> web      # Visualize (requires graphviz)
+> top   # Show top functions
+> list <function> # Show function code
+> web   # Visualize (requires graphviz)
 
 # Web UI (recommended)
 go tool pprof -http=:8080 cpu.prof
@@ -171,14 +171,14 @@ go tool pprof -http=:8080 cpu.prof
 
 ## Interpreting Results
 
-### Good Performance ✅
+### Good Performance
 
 - TPS scales linearly with worker count
 - P99 latency < 50ms
 - Error rate < 0.1%
 - Stable memory usage
 
-### Performance Issues ⚠️
+### Performance Issues
 
 - TPS plateaus despite adding workers
 - P99 latency > 100ms
@@ -230,7 +230,7 @@ mv benchmark_results/run_* benchmark_results/optimized
 
 ```bash
 diff benchmark_results/baseline/SUMMARY.md \
-     benchmark_results/optimized/SUMMARY.md
+   benchmark_results/optimized/SUMMARY.md
 ```
 
 ### 6. Iterate
@@ -241,10 +241,10 @@ Repeat until reaching performance targets
 
 | Metric | Current | Target | Status |
 | -------- | --------- | -------- | -------- |
-| Throughput | ~147 TPS | 2,500+ TPS | ⚠️ In progress |
-| P99 Latency | TBD | < 50ms | ⚠️ To measure |
-| Error Rate | 0% | < 0.1% | ✅ Good |
-| Memory | TBD | < 500MB | ⚠️ To measure |
+| Throughput | ~147 TPS | 2,500+ TPS | In progress |
+| P99 Latency | TBD | < 50ms | To measure |
+| Error Rate | 0% | < 0.1% | Good |
+| Memory | TBD | < 500MB | To measure |
 
 ## Examples
 
@@ -283,8 +283,8 @@ grep "Tasks/Second" benchmark_results/run_*/SUMMARY.md
 # Fail if below threshold
 tps=$(grep "Tasks/Second" benchmark_results/run_*/SUMMARY.md | awk '{print $2}')
 if (( $(echo "$tps < 100" | bc -l) )); then
-    echo "Performance regression detected!"
-    exit 1
+  echo "Performance regression detected!"
+  exit 1
 fi
 ```
 

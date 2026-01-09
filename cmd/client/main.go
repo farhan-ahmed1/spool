@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	fmt.Println("🚀 Spool Client")
+	fmt.Println(" Spool Client")
 
 	// TODO: Implement CLI commands
 	// - submit: Submit a new task

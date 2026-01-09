@@ -8,12 +8,33 @@ import (
 	"time"
 )
 
-// Handler is a function that processes a task
+// Handler is a function that processes a task.
+// Handlers receive the task payload as JSON and return a result or error.
+// The context can be used for cancellation and timeouts.
+//
+// Handler implementations should:
+//   - Be idempotent (safe to retry)
+//   - Respect context cancellation
+//   - Return descriptive errors
+//   - Clean up resources on error
+//
+// Example:
+//   handler := func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+//       var data EmailPayload
+//       if err := json.Unmarshal(payload, &data); err != nil {
+//           return nil, err
+//       }
+//       return sendEmail(ctx, data)
+//   }
 type Handler func(ctx context.Context, payload json.RawMessage) (interface{}, error)
 
-// Registry manages task handlers
+// Registry manages task handlers.
+// It provides thread-safe registration and lookup of handlers by task type.
+// Each task type can only have one registered handler.
 type Registry struct {
+	// mu protects concurrent access to handlers map
 	mu       sync.RWMutex
+	// handlers maps task types to their handler functions
 	handlers map[string]Handler
 }
 
@@ -24,7 +45,18 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Register registers a handler for a specific task type
+// Register registers a handler for a specific task type.
+// Returns an error if a handler for this type already exists.
+//
+// Example:
+//   registry := NewRegistry()
+//   err := registry.Register("send_email", emailHandler)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//
+// Note: Register must be called before starting workers, as it is not
+// safe to register handlers while workers are processing tasks.
 func (r *Registry) Register(taskType string, handler Handler) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

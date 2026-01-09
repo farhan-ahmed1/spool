@@ -20,16 +20,16 @@ import (
 // TestPayload is a simple payload for benchmark tasks
 type TestPayload struct {
 	Message string `json:"message"`
-	Number  int    `json:"number"`
+	Number int  `json:"number"`
 }
 
 // setupBenchmarkEnvironment creates a test queue, storage, and worker pool
 func setupBenchmarkEnvironment(workerCount int) (*queue.RedisQueue, storage.Storage, []*worker.Worker, *task.Registry, *redis.Client, error) {
 	// Create Redis client for storage
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:   "localhost:6379",
 		Password: "",
-		DB:       0,
+		DB:    0,
 		PoolSize: 10,
 	})
 
@@ -60,7 +60,7 @@ func setupBenchmarkEnvironment(workerCount int) (*queue.RedisQueue, storage.Stor
 		// Minimal processing to test throughput
 		return map[string]interface{}{
 			"processed": true,
-			"message":   p.Message,
+			"message":  p.Message,
 		}, nil
 	})
 	if err != nil {
@@ -71,7 +71,7 @@ func setupBenchmarkEnvironment(workerCount int) (*queue.RedisQueue, storage.Stor
 	workers := make([]*worker.Worker, workerCount)
 	for i := 0; i < workerCount; i++ {
 		workers[i] = worker.NewWorker(q, store, registry, worker.Config{
-			ID:           fmt.Sprintf("benchmark-worker-%d", i),
+			ID:      fmt.Sprintf("benchmark-worker-%d", i),
 			PollInterval: 10 * time.Millisecond, // Fast polling for benchmark
 		})
 	}
@@ -144,7 +144,7 @@ func BenchmarkTaskThroughput(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				t, err := task.NewTask("benchmark_task", TestPayload{
 					Message: fmt.Sprintf("Task %d", i),
-					Number:  i,
+					Number: i,
 				})
 				if err != nil {
 					b.Fatalf("Failed to create task: %v", err)
@@ -192,7 +192,7 @@ func BenchmarkEnqueueOnly(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		t, err := task.NewTask("benchmark_task", TestPayload{
 			Message: fmt.Sprintf("Task %d", i),
-			Number:  i,
+			Number: i,
 		})
 		if err != nil {
 			b.Fatalf("Failed to create task: %v", err)
@@ -218,7 +218,7 @@ func BenchmarkDequeueOnly(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		t, _ := task.NewTask("benchmark_task", TestPayload{
 			Message: fmt.Sprintf("Task %d", i),
-			Number:  i,
+			Number: i,
 		})
 		q.Enqueue(ctx, t)
 	}
@@ -306,10 +306,10 @@ func generateLargePayload(size int) string {
 // TestThroughputRequirement verifies the system can process 100+ tasks/second
 func TestThroughputRequirement(t *testing.T) {
 	const (
-		targetTPS    = 100 // Tasks per second target
+		targetTPS  = 100 // Tasks per second target
 		testDuration = 10 * time.Second
-		workerCount  = 4
-		tolerance    = 0.9 // 90% of target is acceptable
+		workerCount = 4
+		tolerance  = 0.9 // 90% of target is acceptable
 	)
 
 	q, store, workers, _, client, err := setupBenchmarkEnvironment(workerCount)
@@ -333,11 +333,11 @@ func TestThroughputRequirement(t *testing.T) {
 	log.Printf("Starting throughput test: target=%d TPS, duration=%v, workers=%d", targetTPS, testDuration, workerCount)
 
 	var (
-		submitted      int64
-		completed      int64
-		failed         int64
-		startTime      = time.Now()
-		stopTime       = startTime.Add(testDuration)
+		submitted   int64
+		completed   int64
+		failed     int64
+		startTime   = time.Now()
+		stopTime    = startTime.Add(testDuration)
 		submissionDone = make(chan struct{})
 	)
 
@@ -348,7 +348,7 @@ func TestThroughputRequirement(t *testing.T) {
 		for time.Now().Before(stopTime) {
 			t, err := task.NewTask("benchmark_task", TestPayload{
 				Message: fmt.Sprintf("Task %d", taskNum),
-				Number:  taskNum,
+				Number: taskNum,
 			})
 			if err != nil {
 				log.Printf("Failed to create task: %v", err)
@@ -404,19 +404,19 @@ processingLoop:
 
 	// Print detailed results
 	t.Logf("=== Throughput Test Results ===")
-	t.Logf("Duration:        %v", elapsed)
-	t.Logf("Workers:         %d", workerCount)
+	t.Logf("Duration:    %v", elapsed)
+	t.Logf("Workers:     %d", workerCount)
 	t.Logf("Tasks Submitted: %d", submitted)
 	t.Logf("Tasks Completed: %d", completed)
-	t.Logf("Tasks Failed:    %d", failed)
-	t.Logf("Throughput:      %.2f tasks/second", actualTPS)
-	t.Logf("Target:          %.2f tasks/second (%.0f%% of %d)", requiredTPS, tolerance*100, targetTPS)
+	t.Logf("Tasks Failed:  %d", failed)
+	t.Logf("Throughput:   %.2f tasks/second", actualTPS)
+	t.Logf("Target:     %.2f tasks/second (%.0f%% of %d)", requiredTPS, tolerance*100, targetTPS)
 	t.Logf("===============================")
 
 	if actualTPS < requiredTPS {
-		t.Errorf("❌ FAILED: Throughput %.2f TPS is below requirement of %.2f TPS", actualTPS, requiredTPS)
+		t.Errorf(" FAILED: Throughput %.2f TPS is below requirement of %.2f TPS", actualTPS, requiredTPS)
 	} else {
-		t.Logf("✅ PASSED: Throughput %.2f TPS exceeds requirement of %.2f TPS", actualTPS, requiredTPS)
+		t.Logf(" PASSED: Throughput %.2f TPS exceeds requirement of %.2f TPS", actualTPS, requiredTPS)
 	}
 }
 
@@ -440,15 +440,15 @@ func TestConcurrentTaskSubmission(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	const (
-		numGoroutines   = 10
+		numGoroutines  = 10
 		tasksPerRoutine = 100
-		totalTasks      = numGoroutines * tasksPerRoutine
+		totalTasks   = numGoroutines * tasksPerRoutine
 	)
 
 	var (
-		wg        sync.WaitGroup
+		wg    sync.WaitGroup
 		submitted int64
-		errors    int64
+		errors  int64
 	)
 
 	startTime := time.Now()
@@ -462,7 +462,7 @@ func TestConcurrentTaskSubmission(t *testing.T) {
 			for i := 0; i < tasksPerRoutine; i++ {
 				t, err := task.NewTask("benchmark_task", TestPayload{
 					Message: fmt.Sprintf("Routine %d Task %d", routineID, i),
-					Number:  i,
+					Number: i,
 				})
 				if err != nil {
 					atomic.AddInt64(&errors, 1)
@@ -511,15 +511,15 @@ processingLoop:
 	totalTime := time.Since(startTime)
 
 	t.Logf("=== Concurrent Submission Test ===")
-	t.Logf("Goroutines:      %d", numGoroutines)
-	t.Logf("Tasks/Routine:   %d", tasksPerRoutine)
-	t.Logf("Total Expected:  %d", totalTasks)
-	t.Logf("Submitted:       %d", submitted)
-	t.Logf("Completed:       %d", completed)
-	t.Logf("Errors:          %d", errors)
+	t.Logf("Goroutines:   %d", numGoroutines)
+	t.Logf("Tasks/Routine:  %d", tasksPerRoutine)
+	t.Logf("Total Expected: %d", totalTasks)
+	t.Logf("Submitted:    %d", submitted)
+	t.Logf("Completed:    %d", completed)
+	t.Logf("Errors:     %d", errors)
 	t.Logf("Submission Time: %v", submissionTime)
-	t.Logf("Total Time:      %v", totalTime)
-	t.Logf("Throughput:      %.2f tasks/sec", float64(completed)/totalTime.Seconds())
+	t.Logf("Total Time:   %v", totalTime)
+	t.Logf("Throughput:   %.2f tasks/sec", float64(completed)/totalTime.Seconds())
 	t.Logf("==================================")
 
 	if completed < submitted*90/100 {

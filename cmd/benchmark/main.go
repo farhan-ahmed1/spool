@@ -23,7 +23,7 @@ func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
 	fmt.Println("╔══════════════════════════════════════════════════════╗")
-	fmt.Println("║        Spool Performance Benchmark Suite            ║")
+	fmt.Println("║ Spool Performance Benchmark Suite ║")
 	fmt.Println("╚══════════════════════════════════════════════════════╝")
 	fmt.Println()
 
@@ -53,11 +53,11 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Printf("\n❌ Benchmark failed: %v\n", err)
+		fmt.Printf("\n Benchmark failed: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("\n✅ Benchmark completed successfully!")
+	fmt.Println("\n Benchmark completed successfully!")
 }
 
 func runCustomBenchmark(workers, tasks int, cpuProfile, memProfile string) error {
@@ -87,10 +87,10 @@ func runCustomBenchmark(workers, tasks int, cpuProfile, memProfile string) error
 	if config.EnableProfiling {
 		fmt.Println("\nProfile files created:")
 		if cpuProfile != "" {
-			fmt.Printf("  CPU: %s\n", cpuProfile)
+			fmt.Printf(" CPU: %s\n", cpuProfile)
 		}
 		if memProfile != "" {
-			fmt.Printf("  Memory: %s\n", memProfile)
+			fmt.Printf(" Memory: %s\n", memProfile)
 		}
 	}
 

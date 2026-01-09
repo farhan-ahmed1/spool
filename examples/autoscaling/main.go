@@ -23,8 +23,8 @@ import (
 // This demonstrates the auto-scaling workers feature of Spool
 //
 // Run this with Redis:
-//   make docker-up
-//   go run examples/autoscaling/main.go
+//  make docker-up
+//  go run examples/autoscaling/main.go
 
 func main() {
 	log.Println("=== Spool Auto-Scaling Demo ===")
@@ -54,9 +54,9 @@ func main() {
 
 	// Setup Redis storage - create Redis client for storage
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:   "localhost:6379",
 		Password: "",
-		DB:       0,
+		DB:    0,
 		PoolSize: 10,
 	})
 	redisStorage := storage.NewRedisStorage(client)
@@ -80,12 +80,12 @@ func main() {
 		}
 
 		id := data["id"]
-		log.Printf("  [Task %v] Processing...", id)
+		log.Printf(" [Task %v] Processing...", id)
 
 		// Simulate CPU-intensive work
 		time.Sleep(500 * time.Millisecond)
 
-		log.Printf("  [Task %v] Completed", id)
+		log.Printf(" [Task %v] Completed", id)
 		return map[string]interface{}{"result": "processed", "id": id}, nil
 	})
 
@@ -94,9 +94,9 @@ func main() {
 
 	// Create worker pool
 	pool := worker.NewPool(redisQueue, redisStorage, registry, metrics, worker.PoolConfig{
-		MinWorkers:      cfg.Worker.AutoScaling.MinWorkers,
-		MaxWorkers:      cfg.Worker.AutoScaling.MaxWorkers,
-		PollInterval:    100 * time.Millisecond,
+		MinWorkers:   cfg.Worker.AutoScaling.MinWorkers,
+		MaxWorkers:   cfg.Worker.AutoScaling.MaxWorkers,
+		PollInterval:  100 * time.Millisecond,
 		ShutdownTimeout: 10 * time.Second,
 	})
 
@@ -131,7 +131,7 @@ func main() {
 		time.Sleep(2 * time.Second)
 
 		// Phase 1: Burst of tasks (trigger scale up)
-		log.Println("📈 Phase 1: High load - enqueueing 50 tasks...")
+		log.Println(" Phase 1: High load - enqueueing 50 tasks...")
 		for i := 0; i < 50; i++ {
 			t, err := task.NewTask("heavy_task", map[string]interface{}{"id": i + 1})
 			if err != nil {
@@ -143,7 +143,7 @@ func main() {
 			}
 			metrics.RecordTaskEnqueued()
 		}
-		log.Println("  Tasks enqueued. Watch workers scale up...")
+		log.Println(" Tasks enqueued. Watch workers scale up...")
 		log.Println()
 
 		// Wait for processing
@@ -151,7 +151,7 @@ func main() {
 
 		// Phase 2: No new tasks (trigger scale down)
 		log.Println("📉 Phase 2: Low load - no new tasks...")
-		log.Println("  Watch workers scale down after idle period...")
+		log.Println(" Watch workers scale down after idle period...")
 		log.Println()
 
 		time.Sleep(15 * time.Second)
@@ -161,7 +161,7 @@ func main() {
 		printFinalStats(metrics, scaler)
 
 		// Wait a bit more to show continued monitoring, then auto-shutdown
-		log.Println("\n⏱️  Continuing to monitor for 10 more seconds... (Press Ctrl+C to stop)")
+		log.Println("\n Continuing to monitor for 10 more seconds... (Press Ctrl+C to stop)")
 		time.Sleep(10 * time.Second)
 
 		// Trigger shutdown
@@ -188,7 +188,7 @@ func monitorMetrics(ctx context.Context, metrics *monitoring.Metrics, pool *work
 			poolStats := pool.GetStats()
 			scalerStats := scaler.GetStats()
 
-			fmt.Printf("\r[%s] Workers: %d (idle: %d, busy: %d) | Queue: %d | Processed: %d | Throughput: %.1f tps | Scaled: ↑%d ↓%d     \n",
+			fmt.Printf("\r[%s] Workers: %d (idle: %d, busy: %d) | Queue: %d | Processed: %d | Throughput: %.1f tps | Scaled: ↑%d ↓%d   \n",
 				time.Now().Format("15:04:05"),
 				poolStats["total_workers"],
 				poolStats["idle_workers"],
@@ -210,24 +210,24 @@ func printFinalStats(metrics *monitoring.Metrics, scaler *monitoring.AutoScaler)
 
 	fmt.Printf("\n")
 	fmt.Printf("Tasks Statistics:\n")
-	fmt.Printf("  Enqueued:    %d\n", snapshot.TasksEnqueued)
-	fmt.Printf("  Processed:   %d\n", snapshot.TasksProcessed)
-	fmt.Printf("  Failed:      %d\n", snapshot.TasksFailed)
-	fmt.Printf("  In Progress: %d\n", snapshot.TasksInProgress)
+	fmt.Printf(" Enqueued:  %d\n", snapshot.TasksEnqueued)
+	fmt.Printf(" Processed:  %d\n", snapshot.TasksProcessed)
+	fmt.Printf(" Failed:   %d\n", snapshot.TasksFailed)
+	fmt.Printf(" In Progress: %d\n", snapshot.TasksInProgress)
 	fmt.Printf("\n")
 	fmt.Printf("Worker Statistics:\n")
-	fmt.Printf("  Active:      %d\n", snapshot.ActiveWorkers)
-	fmt.Printf("  Idle:        %d\n", snapshot.IdleWorkers)
-	fmt.Printf("  Busy:        %d\n", snapshot.BusyWorkers)
+	fmt.Printf(" Active:   %d\n", snapshot.ActiveWorkers)
+	fmt.Printf(" Idle:    %d\n", snapshot.IdleWorkers)
+	fmt.Printf(" Busy:    %d\n", snapshot.BusyWorkers)
 	fmt.Printf("\n")
 	fmt.Printf("Performance:\n")
-	fmt.Printf("  Throughput:  %.2f tasks/sec (current)\n", snapshot.CurrentThroughput)
-	fmt.Printf("  Throughput:  %.2f tasks/sec (average)\n", snapshot.AvgThroughput)
-	fmt.Printf("  Uptime:      %v\n", snapshot.Uptime.Round(time.Second))
+	fmt.Printf(" Throughput: %.2f tasks/sec (current)\n", snapshot.CurrentThroughput)
+	fmt.Printf(" Throughput: %.2f tasks/sec (average)\n", snapshot.AvgThroughput)
+	fmt.Printf(" Uptime:   %v\n", snapshot.Uptime.Round(time.Second))
 	fmt.Printf("\n")
 	fmt.Printf("Auto-Scaling:\n")
-	fmt.Printf("  Scale-up:    %d times\n", scalerStats["scale_up_count"])
-	fmt.Printf("  Scale-down:  %d times\n", scalerStats["scale_down_count"])
+	fmt.Printf(" Scale-up:  %d times\n", scalerStats["scale_up_count"])
+	fmt.Printf(" Scale-down: %d times\n", scalerStats["scale_down_count"])
 	fmt.Printf("\n")
 
 	// Print recent decisions
@@ -236,7 +236,7 @@ func printFinalStats(metrics *monitoring.Metrics, scaler *monitoring.AutoScaler)
 		fmt.Printf("Recent Scaling Decisions:\n")
 		for i, decision := range history {
 			if decision.Action != monitoring.NoAction {
-				fmt.Printf("  %d. %s: %d -> %d workers (Queue: %d, Reason: %s)\n",
+				fmt.Printf(" %d. %s: %d -> %d workers (Queue: %d, Reason: %s)\n",
 					i+1,
 					decision.Action,
 					decision.CurrentCount,
@@ -251,8 +251,8 @@ func printFinalStats(metrics *monitoring.Metrics, scaler *monitoring.AutoScaler)
 	fmt.Println("✓ Demo completed successfully!")
 	fmt.Println()
 	fmt.Println("Key Observations:")
-	fmt.Println("  • Workers scaled UP when queue depth exceeded threshold")
-	fmt.Println("  • Workers scaled DOWN after being idle for the configured period")
-	fmt.Println("  • System maintained min/max worker boundaries")
-	fmt.Println("  • Throughput adjusted dynamically based on workload")
+	fmt.Println(" • Workers scaled UP when queue depth exceeded threshold")
+	fmt.Println(" • Workers scaled DOWN after being idle for the configured period")
+	fmt.Println(" • System maintained min/max worker boundaries")
+	fmt.Println(" • Throughput adjusted dynamically based on workload")
 }

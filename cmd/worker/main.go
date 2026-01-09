@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	fmt.Println("🚀 Spool Worker starting...")
+	fmt.Println(" Spool Worker starting...")
 
 	// TODO: Initialize worker components
 	// - Load configuration

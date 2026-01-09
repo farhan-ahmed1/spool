@@ -7,47 +7,88 @@ import (
 	"github.com/google/uuid"
 )
 
-// Priority levels for tasks
+// Priority defines the urgency level of a task.
+// Higher priority tasks are dequeued and processed before lower priority ones.
 type Priority int
 
 const (
+	// PriorityLow (1) is for non-urgent background tasks
 	PriorityLow Priority = iota
+	// PriorityNormal (2) is the default priority for most tasks
 	PriorityNormal
+	// PriorityHigh (3) is for important tasks that should be processed quickly
 	PriorityHigh
+	// PriorityCritical (4) is for urgent tasks requiring immediate attention
 	PriorityCritical
 )
 
-// State represents the current state of a task
+// State represents the lifecycle stage of a task.
+// Tasks transition through these states as they are processed.
 type State string
 
 const (
+	// StatePending indicates task is waiting in queue
 	StatePending    State = "pending"
+	// StateProcessing indicates task is currently being executed by a worker
 	StateProcessing State = "processing"
+	// StateCompleted indicates task finished successfully
 	StateCompleted  State = "completed"
+	// StateFailed indicates task failed after all retry attempts
 	StateFailed     State = "failed"
+	// StateRetrying indicates task is waiting for retry after a failure
 	StateRetrying   State = "retrying"
+	// StateDeadLetter indicates task was moved to dead letter queue after exhausting retries
 	StateDeadLetter State = "dead_letter"
 )
 
-// Task represents a unit of work to be executed
+// Task represents a unit of work to be executed by a worker.
+// Tasks are the core data structure in Spool, containing all information
+// needed to execute, retry, and track a job.
 type Task struct {
+	// ID is a unique identifier for this task (UUID v4)
 	ID          string                 `json:"id"`
+	// Type identifies which handler should process this task
 	Type        string                 `json:"type"`
+	// Payload contains the task-specific data as JSON
 	Payload     json.RawMessage        `json:"payload"`
+	// Priority determines processing order (higher = more urgent)
 	Priority    Priority               `json:"priority"`
+	// State tracks the current lifecycle stage of the task
 	State       State                  `json:"state"`
+	// MaxRetries is the maximum number of retry attempts allowed
 	MaxRetries  int                    `json:"max_retries"`
+	// RetryCount tracks how many times this task has been retried
 	RetryCount  int                    `json:"retry_count"`
+	// Timeout is the maximum execution duration before task is killed
 	Timeout     time.Duration          `json:"timeout"`
+	// CreatedAt is when the task was first created
 	CreatedAt   time.Time              `json:"created_at"`
+	// ScheduledAt is when the task should be executed (for delayed tasks)
 	ScheduledAt time.Time              `json:"scheduled_at,omitempty"`
+	// StartedAt is when task execution began (nil if not started)
 	StartedAt   *time.Time             `json:"started_at,omitempty"`
+	// CompletedAt is when task finished (success or failure)
 	CompletedAt *time.Time             `json:"completed_at,omitempty"`
+	// Error contains the error message if task failed
 	Error       string                 `json:"error,omitempty"`
+	// Metadata stores arbitrary key-value data for tracking/debugging
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// NewTask creates a new task with sensible defaults
+// NewTask creates a new task with sensible defaults.
+// The task is initialized with:
+//   - A unique UUID v4 identifier
+//   - Normal priority (can be changed with WithPriority)
+//   - Pending state
+//   - 3 maximum retries (can be changed with WithMaxRetries)
+//   - 30 second timeout (can be changed with WithTimeout)
+//
+// Example:
+//   task, err := NewTask("send_email", map[string]interface{}{
+//       "to": "user@example.com",
+//       "subject": "Welcome",
+//   })
+//   task.WithPriority(PriorityHigh).WithTimeout(60 * time.Second)
 func NewTask(taskType string, payload interface{}) (*Task, error) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
