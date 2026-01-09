@@ -1432,8 +1432,14 @@ func TestTaskEventsInWebSocket(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/ws", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
+	// Use a channel to synchronize goroutine completion
+	done := make(chan struct{})
+
 	// Connect and let it send recent events
-	go server.handleWebSocket(w, req)
+	go func() {
+		defer close(done)
+		server.handleWebSocket(w, req)
+	}()
 
 	// Give it time to send initial data
 	time.Sleep(200 * time.Millisecond)
@@ -1441,8 +1447,8 @@ func TestTaskEventsInWebSocket(t *testing.T) {
 	// Cancel context
 	cancel()
 
-	// Wait a bit for cleanup
-	time.Sleep(100 * time.Millisecond)
+	// Wait for goroutine to complete
+	<-done
 
 	// Should contain task events in response
 	body := w.Body.String()
