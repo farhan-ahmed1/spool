@@ -62,3 +62,6 @@ Thumbs.db
 
 # extra docs
 docs/
+
+# .github
+.github/
