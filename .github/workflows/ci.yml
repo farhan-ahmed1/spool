@@ -45,7 +45,7 @@ jobs:
         REDIS_HOST: localhost
         
     - name: Generate coverage report
-      run: go test -coverprofile=coverage.txt -covermode=atomic ./...
+      run: go test -coverprofile=coverage.txt -covermode=atomic ./internal/... ./pkg/... ./web/...
       env:
         REDIS_HOST: localhost
         

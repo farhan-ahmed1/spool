@@ -1,0 +1,15 @@
+coverage:
+  ignore:
+    - "tests/**/*"           # Ignore all test directories (integration, load, profile)
+    - "**/*_test.go"         # Ignore all test files
+    - "examples/**/*"        # Ignore example code
+    - "scripts/**/*"         # Ignore shell scripts
+    - "cmd/**/main.go"       # Ignore main entry points (optional)
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+
+github_checks:
+  annotations: true
