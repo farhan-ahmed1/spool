@@ -344,7 +344,11 @@ func TestE2E_AutoScalingIntegration(t *testing.T) {
 	if err := w.Start(ctx); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
 	}
-	defer w.Stop()
+	defer func() {
+		if err := w.Stop(); err != nil {
+			t.Logf("Failed to stop worker: %v", err)
+		}
+	}()
 
 	// Test scenario 1: Submit tasks and monitor queue behavior
 	t.Log("Scenario 1: Enqueuing 30 slow tasks and monitoring queue depth")
@@ -443,7 +447,11 @@ func TestE2E_DashboardMetricsAccuracy(t *testing.T) {
 	if err := iw.Start(ctx); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
 	}
-	defer iw.Stop()
+	defer func() {
+		if err := iw.Stop(); err != nil {
+			t.Logf("Failed to stop worker: %v", err)
+		}
+	}()
 
 	// Enqueue known number of tasks
 	taskCount := 20
@@ -559,7 +567,11 @@ func TestE2E_ConcurrentWorkersConsistency(t *testing.T) {
 			t.Fatalf("Failed to start worker %d: %v", i+1, err)
 		}
 		workers[i] = iw
-		defer iw.Stop()
+		defer func(iw *worker.InstrumentedWorker, id int) {
+			if err := iw.Stop(); err != nil {
+				t.Logf("Failed to stop worker %d: %v", id+1, err)
+			}
+		}(iw, i)
 	}
 
 	// Enqueue tasks

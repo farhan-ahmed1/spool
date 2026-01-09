@@ -158,10 +158,14 @@ func (b *Broker) handleSubmit(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"id":     t.ID,
 		"status": "enqueued",
-	})
+	}); err != nil {
+		b.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleBatchSubmit handles batch task submission
@@ -202,11 +206,15 @@ func (b *Broker) handleBatchSubmit(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"ids":      taskIDs,
 		"enqueued": len(taskIDs),
 		"total":    len(tasks),
-	})
+	}); err != nil {
+		b.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleList lists recent tasks
@@ -227,10 +235,14 @@ func (b *Broker) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"tasks": tasks,
 		"total": len(tasks),
-	})
+	}); err != nil {
+		b.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleTaskByID handles task retrieval by ID
@@ -263,7 +275,11 @@ func (b *Broker) handleTaskByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(t)
+	if err := json.NewEncoder(w).Encode(t); err != nil {
+		b.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleQueueStats returns queue statistics
@@ -286,11 +302,15 @@ func (b *Broker) handleQueueStats(w http.ResponseWriter, r *http.Request) {
 	dlqSize, _ := b.queue.GetDLQSize(ctx)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"queue_size": size,
 		"dlq_size":   dlqSize,
 		"timestamp":  time.Now().Format(time.RFC3339),
-	})
+	}); err != nil {
+		b.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handlePurge purges the queue
@@ -312,9 +332,13 @@ func (b *Broker) handlePurge(w http.ResponseWriter, r *http.Request) {
 	b.logger.Warn("Queue purged", logger.Fields{})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "purged",
-	})
+	}); err != nil {
+		b.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleHealth returns health status

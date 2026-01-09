@@ -378,10 +378,14 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	if s.storage == nil {
 		// If storage not configured, return empty list
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"tasks": []TaskDetail{},
 			"total": 0,
-		})
+		}); err != nil {
+			s.logger.Error("Failed to encode response", logger.Fields{
+				"error": err.Error(),
+			})
+		}
 		return
 	}
 	
@@ -446,10 +450,14 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"tasks": details,
 		"total": len(details),
-	})
+	}); err != nil {
+		s.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleTaskDetail returns detailed information about a specific task
@@ -544,10 +552,14 @@ func (s *Server) handleDLQ(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"tasks": details,
 		"total": len(details),
-	})
+	}); err != nil {
+		s.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // WorkerDetailResponse represents the response for worker details
@@ -590,10 +602,14 @@ func (s *Server) handleWorkers(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"workers": summaries,
 		"total":   len(summaries),
-	})
+	}); err != nil {
+		s.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleWorkerDetail returns detailed information about a specific worker
@@ -650,7 +666,11 @@ func (s *Server) handleWorkerDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.logger.Error("Failed to encode response", logger.Fields{
+			"error": err.Error(),
+		})
+	}
 }
 
 // handleHealth returns health status
