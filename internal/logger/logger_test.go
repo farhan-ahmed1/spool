@@ -8,10 +8,10 @@ import (
 
 func TestLogger_Levels(t *testing.T) {
 	tests := []struct {
-		name       string
-		level      string
-		logLevel   Level
-		shouldLog  bool
+		name      string
+		level     string
+		logLevel  Level
+		shouldLog bool
 	}{
 		{"Debug logs at DEBUG level", "debug", DEBUG, true},
 		{"Info logs at DEBUG level", "debug", INFO, true},
@@ -187,9 +187,9 @@ func TestParseLevel(t *testing.T) {
 func TestMergeFields(t *testing.T) {
 	f1 := Fields{"a": 1, "b": 2}
 	f2 := Fields{"c": 3, "b": 4} // b should be overwritten
-	
+
 	result := mergeFields(f1, f2)
-	
+
 	if result["a"] != 1 {
 		t.Errorf("Expected a=1, got %v", result["a"])
 	}

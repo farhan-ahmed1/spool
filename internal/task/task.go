@@ -28,15 +28,15 @@ type State string
 
 const (
 	// StatePending indicates task is waiting in queue
-	StatePending    State = "pending"
+	StatePending State = "pending"
 	// StateProcessing indicates task is currently being executed by a worker
 	StateProcessing State = "processing"
 	// StateCompleted indicates task finished successfully
-	StateCompleted  State = "completed"
+	StateCompleted State = "completed"
 	// StateFailed indicates task failed after all retry attempts
-	StateFailed     State = "failed"
+	StateFailed State = "failed"
 	// StateRetrying indicates task is waiting for retry after a failure
-	StateRetrying   State = "retrying"
+	StateRetrying State = "retrying"
 	// StateDeadLetter indicates task was moved to dead letter queue after exhausting retries
 	StateDeadLetter State = "dead_letter"
 )
@@ -46,33 +46,33 @@ const (
 // needed to execute, retry, and track a job.
 type Task struct {
 	// ID is a unique identifier for this task (UUID v4)
-	ID          string                 `json:"id"`
+	ID string `json:"id"`
 	// Type identifies which handler should process this task
-	Type        string                 `json:"type"`
+	Type string `json:"type"`
 	// Payload contains the task-specific data as JSON
-	Payload     json.RawMessage        `json:"payload"`
+	Payload json.RawMessage `json:"payload"`
 	// Priority determines processing order (higher = more urgent)
-	Priority    Priority               `json:"priority"`
+	Priority Priority `json:"priority"`
 	// State tracks the current lifecycle stage of the task
-	State       State                  `json:"state"`
+	State State `json:"state"`
 	// MaxRetries is the maximum number of retry attempts allowed
-	MaxRetries  int                    `json:"max_retries"`
+	MaxRetries int `json:"max_retries"`
 	// RetryCount tracks how many times this task has been retried
-	RetryCount  int                    `json:"retry_count"`
+	RetryCount int `json:"retry_count"`
 	// Timeout is the maximum execution duration before task is killed
-	Timeout     time.Duration          `json:"timeout"`
+	Timeout time.Duration `json:"timeout"`
 	// CreatedAt is when the task was first created
-	CreatedAt   time.Time              `json:"created_at"`
+	CreatedAt time.Time `json:"created_at"`
 	// ScheduledAt is when the task should be executed (for delayed tasks)
-	ScheduledAt time.Time              `json:"scheduled_at,omitempty"`
+	ScheduledAt time.Time `json:"scheduled_at,omitempty"`
 	// StartedAt is when task execution began (nil if not started)
-	StartedAt   *time.Time             `json:"started_at,omitempty"`
+	StartedAt *time.Time `json:"started_at,omitempty"`
 	// CompletedAt is when task finished (success or failure)
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	// Error contains the error message if task failed
-	Error       string                 `json:"error,omitempty"`
+	Error string `json:"error,omitempty"`
 	// Metadata stores arbitrary key-value data for tracking/debugging
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // NewTask creates a new task with sensible defaults.
@@ -84,11 +84,12 @@ type Task struct {
 //   - 30 second timeout (can be changed with WithTimeout)
 //
 // Example:
-//   task, err := NewTask("send_email", map[string]interface{}{
-//       "to": "user@example.com",
-//       "subject": "Welcome",
-//   })
-//   task.WithPriority(PriorityHigh).WithTimeout(60 * time.Second)
+//
+//	task, err := NewTask("send_email", map[string]interface{}{
+//	    "to": "user@example.com",
+//	    "subject": "Welcome",
+//	})
+//	task.WithPriority(PriorityHigh).WithTimeout(60 * time.Second)
 func NewTask(taskType string, payload interface{}) (*Task, error) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {

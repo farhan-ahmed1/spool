@@ -13,15 +13,15 @@ import (
 
 // Example payload structures
 type EmailPayload struct {
-	To   string `json:"to"`
+	To      string `json:"to"`
 	Subject string `json:"subject"`
-	Body  string `json:"body"`
+	Body    string `json:"body"`
 }
 
 type ImagePayload struct {
-	URL  string `json:"url"`
-	Width int  `json:"width"`
-	Height int  `json:"height"`
+	URL    string `json:"url"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
 }
 
 func main() {
@@ -36,9 +36,9 @@ func main() {
 
 	// Example 1: Submit a simple task
 	emailTask, err := task.NewTask("send_email", EmailPayload{
-		To:   "user@example.com",
+		To:      "user@example.com",
 		Subject: "Hello from Spool",
-		Body:  "Your task queue is working!",
+		Body:    "Your task queue is working!",
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -53,8 +53,8 @@ func main() {
 
 	// Example 2: Submit with retry configuration
 	imageTask, err := task.NewTask("resize_image", ImagePayload{
-		URL:  "https://example.com/image.jpg",
-		Width: 800,
+		URL:    "https://example.com/image.jpg",
+		Width:  800,
 		Height: 600,
 	})
 	if err != nil {
@@ -120,7 +120,7 @@ func main() {
 	for i := 0; i < 10; i++ {
 		t, _ := task.NewTask("process_item", map[string]interface{}{
 			"item_id": i,
-			"action": "process",
+			"action":  "process",
 		})
 		batchTasks = append(batchTasks, t)
 	}

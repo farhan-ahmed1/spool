@@ -22,10 +22,10 @@ func newMockQueue(size int64) *mockQueue {
 	}
 }
 
-func (m *mockQueue) Enqueue(ctx context.Context, t *task.Task) error           { return nil }
-func (m *mockQueue) Dequeue(ctx context.Context) (*task.Task, error)           { return nil, queue.ErrNoTask }
-func (m *mockQueue) Peek(ctx context.Context) (*task.Task, error)              { return nil, nil }
-func (m *mockQueue) Ack(ctx context.Context, taskID string) error              { return nil }
+func (m *mockQueue) Enqueue(ctx context.Context, t *task.Task) error             { return nil }
+func (m *mockQueue) Dequeue(ctx context.Context) (*task.Task, error)             { return nil, queue.ErrNoTask }
+func (m *mockQueue) Peek(ctx context.Context) (*task.Task, error)                { return nil, nil }
+func (m *mockQueue) Ack(ctx context.Context, taskID string) error                { return nil }
 func (m *mockQueue) Nack(ctx context.Context, taskID string, requeue bool) error { return nil }
 func (m *mockQueue) Size(ctx context.Context) (int64, error) {
 	select {
@@ -38,12 +38,14 @@ func (m *mockQueue) Size(ctx context.Context) (int64, error) {
 func (m *mockQueue) SizeByPriority(ctx context.Context) (map[task.Priority]int64, error) {
 	return nil, nil
 }
-func (m *mockQueue) Purge(ctx context.Context) error                                          { return nil }
-func (m *mockQueue) EnqueueDLQ(ctx context.Context, t *task.Task, reason string) error        { return nil }
-func (m *mockQueue) GetDLQSize(ctx context.Context) (int64, error)                            { return 0, nil }
-func (m *mockQueue) GetDLQTasks(ctx context.Context, limit int) ([]*task.Task, error)         { return nil, nil }
-func (m *mockQueue) Close() error                                                             { return nil }
-func (m *mockQueue) Health(ctx context.Context) error                                         { return nil }
+func (m *mockQueue) Purge(ctx context.Context) error                                   { return nil }
+func (m *mockQueue) EnqueueDLQ(ctx context.Context, t *task.Task, reason string) error { return nil }
+func (m *mockQueue) GetDLQSize(ctx context.Context) (int64, error)                     { return 0, nil }
+func (m *mockQueue) GetDLQTasks(ctx context.Context, limit int) ([]*task.Task, error) {
+	return nil, nil
+}
+func (m *mockQueue) Close() error                     { return nil }
+func (m *mockQueue) Health(ctx context.Context) error { return nil }
 
 func (m *mockQueue) setSize(size int64) {
 	m.sizeChan <- size
@@ -326,4 +328,3 @@ func BenchmarkMetrics_Snapshot(b *testing.B) {
 		_ = metrics.Snapshot()
 	}
 }
-

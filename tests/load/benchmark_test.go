@@ -20,16 +20,16 @@ import (
 // TestPayload is a simple payload for benchmark tasks
 type TestPayload struct {
 	Message string `json:"message"`
-	Number int  `json:"number"`
+	Number  int    `json:"number"`
 }
 
 // setupBenchmarkEnvironment creates a test queue, storage, and worker pool
 func setupBenchmarkEnvironment(workerCount int) (*queue.RedisQueue, storage.Storage, []*worker.Worker, *task.Registry, *redis.Client, error) {
 	// Create Redis client for storage
 	client := redis.NewClient(&redis.Options{
-		Addr:   "localhost:6379",
+		Addr:     "localhost:6379",
 		Password: "",
-		DB:    0,
+		DB:       0,
 		PoolSize: 10,
 	})
 
@@ -60,7 +60,7 @@ func setupBenchmarkEnvironment(workerCount int) (*queue.RedisQueue, storage.Stor
 		// Minimal processing to test throughput
 		return map[string]interface{}{
 			"processed": true,
-			"message":  p.Message,
+			"message":   p.Message,
 		}, nil
 	})
 	if err != nil {
@@ -71,7 +71,7 @@ func setupBenchmarkEnvironment(workerCount int) (*queue.RedisQueue, storage.Stor
 	workers := make([]*worker.Worker, workerCount)
 	for i := 0; i < workerCount; i++ {
 		workers[i] = worker.NewWorker(q, store, registry, worker.Config{
-			ID:      fmt.Sprintf("benchmark-worker-%d", i),
+			ID:           fmt.Sprintf("benchmark-worker-%d", i),
 			PollInterval: 10 * time.Millisecond, // Fast polling for benchmark
 		})
 	}
@@ -126,7 +126,7 @@ func BenchmarkTaskThroughput(b *testing.B) {
 			}
 			defer cleanupBenchmarkEnvironment(q, workers, client)
 			ctx := context.Background()
-			
+
 			// Start workers
 			for _, w := range workers {
 				if err := w.Start(ctx); err != nil {
@@ -144,7 +144,7 @@ func BenchmarkTaskThroughput(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				t, err := task.NewTask("benchmark_task", TestPayload{
 					Message: fmt.Sprintf("Task %d", i),
-					Number: i,
+					Number:  i,
 				})
 				if err != nil {
 					b.Fatalf("Failed to create task: %v", err)
@@ -159,7 +159,7 @@ func BenchmarkTaskThroughput(b *testing.B) {
 			timeout := time.After(60 * time.Second)
 			ticker := time.NewTicker(10 * time.Millisecond)
 			defer ticker.Stop()
-			
+
 			for {
 				select {
 				case <-ticker.C:
@@ -183,21 +183,21 @@ func BenchmarkEnqueueOnly(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer cleanupBenchmarkEnvironment(q, nil, client)
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		t, err := task.NewTask("benchmark_task", TestPayload{
 			Message: fmt.Sprintf("Task %d", i),
-			Number: i,
+			Number:  i,
 		})
 		if err != nil {
 			b.Fatalf("Failed to create task: %v", err)
 		}
-		
+
 		if err := q.Enqueue(ctx, t); err != nil {
 			b.Fatalf("Failed to enqueue task: %v", err)
 		}
@@ -211,21 +211,21 @@ func BenchmarkDequeueOnly(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer cleanupBenchmarkEnvironment(q, nil, client)
-	
+
 	ctx := context.Background()
-	
+
 	// Pre-populate queue
 	for i := 0; i < b.N; i++ {
 		t, _ := task.NewTask("benchmark_task", TestPayload{
 			Message: fmt.Sprintf("Task %d", i),
-			Number: i,
+			Number:  i,
 		})
 		q.Enqueue(ctx, t)
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_, err := q.Dequeue(ctx)
 		if err != nil {
@@ -237,7 +237,7 @@ func BenchmarkDequeueOnly(b *testing.B) {
 // BenchmarkTaskProcessing measures end-to-end task processing
 func BenchmarkTaskProcessing(b *testing.B) {
 	payloadSizes := []int{100, 1024, 10240} // 100B, 1KB, 10KB
-	
+
 	for _, size := range payloadSizes {
 		b.Run(fmt.Sprintf("PayloadSize=%dB", size), func(b *testing.B) {
 			q, store, workers, registry, client, err := setupBenchmarkEnvironment(4)
@@ -245,7 +245,7 @@ func BenchmarkTaskProcessing(b *testing.B) {
 				b.Fatalf("Failed to setup benchmark: %v", err)
 			}
 			defer cleanupBenchmarkEnvironment(q, workers, client)
-			
+
 			// Register handler with payload processing
 			registry.Register("payload_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 				var data map[string]interface{}
@@ -253,32 +253,32 @@ func BenchmarkTaskProcessing(b *testing.B) {
 				// Simulate some processing
 				return data, nil
 			})
-			
+
 			ctx := context.Background()
-			
+
 			// Start workers
 			for _, w := range workers {
 				w.Start(ctx)
 			}
 			time.Sleep(100 * time.Millisecond)
-			
+
 			b.ResetTimer()
 			b.ReportAllocs()
-			
+
 			// Generate payload
 			payload := make(map[string]interface{})
 			payload["data"] = generateLargePayload(size)
-			
+
 			for i := 0; i < b.N; i++ {
 				t, _ := task.NewTask("payload_task", payload)
 				q.Enqueue(ctx, t)
 			}
-			
+
 			// Wait for completion
 			timeout := time.After(60 * time.Second)
 			ticker := time.NewTicker(10 * time.Millisecond)
 			defer ticker.Stop()
-			
+
 			for {
 				select {
 				case <-ticker.C:
@@ -306,10 +306,10 @@ func generateLargePayload(size int) string {
 // TestThroughputRequirement verifies the system can process 100+ tasks/second
 func TestThroughputRequirement(t *testing.T) {
 	const (
-		targetTPS  = 100 // Tasks per second target
+		targetTPS    = 100 // Tasks per second target
 		testDuration = 10 * time.Second
-		workerCount = 4
-		tolerance  = 0.9 // 90% of target is acceptable
+		workerCount  = 4
+		tolerance    = 0.9 // 90% of target is acceptable
 	)
 
 	q, store, workers, _, client, err := setupBenchmarkEnvironment(workerCount)
@@ -333,11 +333,11 @@ func TestThroughputRequirement(t *testing.T) {
 	log.Printf("Starting throughput test: target=%d TPS, duration=%v, workers=%d", targetTPS, testDuration, workerCount)
 
 	var (
-		submitted   int64
-		completed   int64
-		failed     int64
-		startTime   = time.Now()
-		stopTime    = startTime.Add(testDuration)
+		submitted      int64
+		completed      int64
+		failed         int64
+		startTime      = time.Now()
+		stopTime       = startTime.Add(testDuration)
 		submissionDone = make(chan struct{})
 	)
 
@@ -348,7 +348,7 @@ func TestThroughputRequirement(t *testing.T) {
 		for time.Now().Before(stopTime) {
 			t, err := task.NewTask("benchmark_task", TestPayload{
 				Message: fmt.Sprintf("Task %d", taskNum),
-				Number: taskNum,
+				Number:  taskNum,
 			})
 			if err != nil {
 				log.Printf("Failed to create task: %v", err)
@@ -440,15 +440,15 @@ func TestConcurrentTaskSubmission(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	const (
-		numGoroutines  = 10
+		numGoroutines   = 10
 		tasksPerRoutine = 100
-		totalTasks   = numGoroutines * tasksPerRoutine
+		totalTasks      = numGoroutines * tasksPerRoutine
 	)
 
 	var (
-		wg    sync.WaitGroup
+		wg        sync.WaitGroup
 		submitted int64
-		errors  int64
+		errors    int64
 	)
 
 	startTime := time.Now()
@@ -462,7 +462,7 @@ func TestConcurrentTaskSubmission(t *testing.T) {
 			for i := 0; i < tasksPerRoutine; i++ {
 				t, err := task.NewTask("benchmark_task", TestPayload{
 					Message: fmt.Sprintf("Routine %d Task %d", routineID, i),
-					Number: i,
+					Number:  i,
 				})
 				if err != nil {
 					atomic.AddInt64(&errors, 1)

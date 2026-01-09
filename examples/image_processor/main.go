@@ -22,12 +22,12 @@ import (
 
 // ImageProcessingTask represents different image processing operations
 type ImageProcessingTask struct {
-	Operation string // "resize", "grayscale", "thumbnail", "watermark"
-	InputPath string
+	Operation  string // "resize", "grayscale", "thumbnail", "watermark"
+	InputPath  string
 	OutputPath string
-	Width   int
-	Height   int
-	Quality  int
+	Width      int
+	Height     int
+	Quality    int
 }
 
 func main() {
@@ -37,7 +37,7 @@ func main() {
 	// Connect to Redis
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
-		DB:  0,
+		DB:   0,
 	})
 
 	// Test connection
@@ -71,7 +71,7 @@ func main() {
 
 	for i := 0; i < numWorkers; i++ {
 		w := worker.NewWorker(q, store, registry, worker.Config{
-			ID:      fmt.Sprintf("image-worker-%d", i+1),
+			ID:           fmt.Sprintf("image-worker-%d", i+1),
 			PollInterval: 100 * time.Millisecond,
 		})
 
@@ -250,7 +250,7 @@ func submitImageTasks(ctx context.Context, q queue.Queue, images []string, outpu
 	for i, imagePath := range images {
 		// Submit thumbnail task (high priority)
 		thumbnailTask, err := task.NewTask("image_thumbnail", map[string]interface{}{
-			"input_path": imagePath,
+			"input_path":  imagePath,
 			"output_path": filepath.Join(outputDir, fmt.Sprintf("thumbnail_%d.png", i+1)),
 		})
 		if err != nil {
@@ -267,7 +267,7 @@ func submitImageTasks(ctx context.Context, q queue.Queue, images []string, outpu
 
 		// Submit grayscale task (normal priority)
 		grayscaleTask, err := task.NewTask("image_grayscale", map[string]interface{}{
-			"input_path": imagePath,
+			"input_path":  imagePath,
 			"output_path": filepath.Join(outputDir, fmt.Sprintf("grayscale_%d.png", i+1)),
 		})
 		if err != nil {
@@ -284,10 +284,10 @@ func submitImageTasks(ctx context.Context, q queue.Queue, images []string, outpu
 
 		// Submit resize task (low priority)
 		resizeTask, err := task.NewTask("image_resize", map[string]interface{}{
-			"input_path": imagePath,
+			"input_path":  imagePath,
 			"output_path": filepath.Join(outputDir, fmt.Sprintf("resized_%d.png", i+1)),
-			"width":    float64(800),
-			"height":   float64(600),
+			"width":       float64(800),
+			"height":      float64(600),
 		})
 		if err != nil {
 			log.Printf(" Failed to create resize task: %v", err)
@@ -303,9 +303,9 @@ func submitImageTasks(ctx context.Context, q queue.Queue, images []string, outpu
 
 		// Submit watermark task (normal priority)
 		watermarkTask, err := task.NewTask("image_watermark", map[string]interface{}{
-			"input_path": imagePath,
+			"input_path":  imagePath,
 			"output_path": filepath.Join(outputDir, fmt.Sprintf("watermarked_%d.png", i+1)),
-			"text":    "© Spool Demo",
+			"text":        "© Spool Demo",
 		})
 		if err != nil {
 			log.Printf(" Failed to create watermark task: %v", err)

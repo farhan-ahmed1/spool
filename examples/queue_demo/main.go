@@ -27,9 +27,9 @@ func main() {
 
 	// High priority task
 	highPriorityTask, _ := task.NewTask("send_email", map[string]string{
-		"to":   "user@example.com",
+		"to":      "user@example.com",
 		"subject": "Urgent: System Alert",
-		"body":  "Your attention is required",
+		"body":    "Your attention is required",
 	})
 	highPriorityTask.WithPriority(task.PriorityHigh)
 	if err := q.Enqueue(ctx, highPriorityTask); err != nil {
@@ -40,7 +40,7 @@ func main() {
 	// Normal priority task
 	normalTask, _ := task.NewTask("process_data", map[string]interface{}{
 		"dataset": "users",
-		"action": "transform",
+		"action":  "transform",
 	})
 	if err := q.Enqueue(ctx, normalTask); err != nil {
 		log.Fatalf("Failed to enqueue task: %v", err)

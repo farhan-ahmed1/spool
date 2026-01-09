@@ -26,20 +26,20 @@ type Server struct {
 	server   *http.Server
 	serverMu sync.RWMutex // Protects server field
 	logger   *logger.Logger
-	
+
 	// WebSocket connections
 	mu          sync.RWMutex
 	connections map[*connection]bool
 	broadcast   chan MetricsUpdate
-	
+
 	// Task events for live feed
-	taskEvents     chan TaskEvent
-	recentEvents   []TaskEvent
-	eventsMu       sync.RWMutex
+	taskEvents      chan TaskEvent
+	recentEvents    []TaskEvent
+	eventsMu        sync.RWMutex
 	maxRecentEvents int
-	
+
 	// Shutdown
-	done chan struct{}
+	done  chan struct{}
 	ready chan struct{} // Signals when server is ready
 }
 
@@ -59,31 +59,31 @@ type Config struct {
 
 // MetricsUpdate represents real-time metrics data sent to dashboard clients
 type MetricsUpdate struct {
-	Timestamp         string              `json:"timestamp"`
-	QueueDepth        int64               `json:"queueDepth"`
-	QueueDepthHigh    int64               `json:"queueDepthHigh"`
-	QueueDepthLow     int64               `json:"queueDepthLow"`
-	QueueTrend        []QueueDataPoint    `json:"queueTrend"`
+	Timestamp         string                `json:"timestamp"`
+	QueueDepth        int64                 `json:"queueDepth"`
+	QueueDepthHigh    int64                 `json:"queueDepthHigh"`
+	QueueDepthLow     int64                 `json:"queueDepthLow"`
+	QueueTrend        []QueueDataPoint      `json:"queueTrend"`
 	ThroughputTrend   []ThroughputDataPoint `json:"throughputTrend"`
-	ActiveWorkers     int32               `json:"activeWorkers"`
-	IdleWorkers       int32               `json:"idleWorkers"`
-	BusyWorkers       int32               `json:"busyWorkers"`
-	Workers           []WorkerSummary     `json:"workers"`
-	WorkerUtilization float64             `json:"workerUtilization"`
-	TasksProcessed    int64               `json:"tasksProcessed"`
-	TasksFailed       int64               `json:"tasksFailed"`
-	TasksRetried      int64               `json:"tasksRetried"`
-	TasksEnqueued     int64               `json:"tasksEnqueued"`
-	TasksInProgress   int32               `json:"tasksInProgress"`
-	CurrentThroughput float64             `json:"currentThroughput"`
-	AvgThroughput     float64             `json:"avgThroughput"`
-	AvgProcessingTime string              `json:"avgProcessingTime"`
-	P95ProcessingTime string              `json:"p95ProcessingTime"`
-	P99ProcessingTime string              `json:"p99ProcessingTime"`
-	Uptime            string              `json:"uptime"`
-	OldestIdleTime    string              `json:"oldestIdleTime"`
-	DLQSize           int64               `json:"dlqSize"`
-	QueueHealth       string              `json:"queueHealth"`
+	ActiveWorkers     int32                 `json:"activeWorkers"`
+	IdleWorkers       int32                 `json:"idleWorkers"`
+	BusyWorkers       int32                 `json:"busyWorkers"`
+	Workers           []WorkerSummary       `json:"workers"`
+	WorkerUtilization float64               `json:"workerUtilization"`
+	TasksProcessed    int64                 `json:"tasksProcessed"`
+	TasksFailed       int64                 `json:"tasksFailed"`
+	TasksRetried      int64                 `json:"tasksRetried"`
+	TasksEnqueued     int64                 `json:"tasksEnqueued"`
+	TasksInProgress   int32                 `json:"tasksInProgress"`
+	CurrentThroughput float64               `json:"currentThroughput"`
+	AvgThroughput     float64               `json:"avgThroughput"`
+	AvgProcessingTime string                `json:"avgProcessingTime"`
+	P95ProcessingTime string                `json:"p95ProcessingTime"`
+	P99ProcessingTime string                `json:"p99ProcessingTime"`
+	Uptime            string                `json:"uptime"`
+	OldestIdleTime    string                `json:"oldestIdleTime"`
+	DLQSize           int64                 `json:"dlqSize"`
+	QueueHealth       string                `json:"queueHealth"`
 }
 
 // QueueDataPoint represents a point in the queue depth time series
@@ -138,28 +138,28 @@ func NewServer(cfg Config) *Server {
 	}
 
 	return &Server{
-		metrics:        cfg.Metrics,
-		queue:          cfg.Queue,
-		storage:        cfg.Storage,
-		addr:           cfg.Addr,
-		logger:         dashboardLogger,
-		connections:    make(map[*connection]bool),
-		broadcast:      make(chan MetricsUpdate, 100),
-		taskEvents:     make(chan TaskEvent, 100),
-		recentEvents:   make([]TaskEvent, 0, 20),
+		metrics:         cfg.Metrics,
+		queue:           cfg.Queue,
+		storage:         cfg.Storage,
+		addr:            cfg.Addr,
+		logger:          dashboardLogger,
+		connections:     make(map[*connection]bool),
+		broadcast:       make(chan MetricsUpdate, 100),
+		taskEvents:      make(chan TaskEvent, 100),
+		recentEvents:    make([]TaskEvent, 0, 20),
 		maxRecentEvents: 20,
-		done:           make(chan struct{}),
-		ready:          make(chan struct{}),
+		done:            make(chan struct{}),
+		ready:           make(chan struct{}),
 	}
 }
 
 // Start starts the HTTP server and WebSocket broadcaster
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
-	
+
 	// Serve dashboard HTML
 	mux.HandleFunc("/", s.handleDashboard)
-	
+
 	// API endpoints
 	mux.HandleFunc("/api/metrics", s.handleMetrics)
 	mux.HandleFunc("/api/ws", s.handleWebSocket)
@@ -168,14 +168,14 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/dlq", s.handleDLQ)
 	mux.HandleFunc("/api/workers", s.handleWorkers)
 	mux.HandleFunc("/api/workers/", s.handleWorkerDetail)
-	
+
 	// Health check
 	mux.HandleFunc("/health", s.handleHealth)
-	
+
 	// Serve static files
 	fs := http.FileServer(http.Dir("web/dashboard/static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
-	
+
 	server := &http.Server{
 		Addr:         s.addr,
 		Handler:      s.withLogging(s.withCORS(mux)),
@@ -183,21 +183,21 @@ func (s *Server) Start() error {
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	
+
 	// Set server with mutex protection
 	s.serverMu.Lock()
 	s.server = server
 	s.serverMu.Unlock()
-	
+
 	// Start WebSocket broadcaster
 	go s.broadcastMetrics()
-	
+
 	// Start metrics update loop
 	go s.updateMetricsLoop()
-	
+
 	// Signal that server is ready
 	close(s.ready)
-	
+
 	s.logger.Info("Starting dashboard server", logger.Fields{
 		"address": s.addr,
 	})
@@ -212,7 +212,7 @@ func (s *Server) Ready() <-chan struct{} {
 // Stop gracefully shuts down the server
 func (s *Server) Stop(ctx context.Context) error {
 	close(s.done)
-	
+
 	// Close all WebSocket connections
 	s.mu.Lock()
 	for conn := range s.connections {
@@ -220,16 +220,16 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 	s.connections = make(map[*connection]bool)
 	s.mu.Unlock()
-	
+
 	// Safely access server with mutex
 	s.serverMu.RLock()
 	server := s.server
 	s.serverMu.RUnlock()
-	
+
 	if server == nil {
 		return nil
 	}
-	
+
 	return server.Shutdown(ctx)
 }
 
@@ -239,7 +239,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	
+
 	tmplPath := filepath.Join("web", "dashboard", "templates", "index.html")
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
@@ -250,11 +250,11 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	
+
 	data := map[string]interface{}{
 		"Title": "Spool Dashboard",
 	}
-	
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.Execute(w, data); err != nil {
 		s.logger.Error("Failed to execute template", logger.Fields{
@@ -269,9 +269,9 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	update := s.collectMetrics()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(update); err != nil {
 		s.logger.Error("Failed to encode metrics", logger.Fields{
@@ -285,34 +285,34 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Upgrade to WebSocket using Server-Sent Events (SSE) for simplicity
 	// In production, use gorilla/websocket for full WebSocket support
-	
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Create connection
 	conn := &connection{
 		ws:   w,
 		send: make(chan MetricsUpdate, 10),
 	}
-	
+
 	// Register connection
 	s.mu.Lock()
 	s.connections[conn] = true
 	s.mu.Unlock()
-	
+
 	// Send initial metrics
 	initialMetrics := s.collectMetrics()
 	data, _ := json.Marshal(initialMetrics)
 	fmt.Fprintf(w, "event: metrics\ndata: %s\n\n", data)
 	flusher.Flush()
-	
+
 	// Send recent task events
 	recentEvents := s.getRecentEvents()
 	for _, event := range recentEvents {
@@ -320,11 +320,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "event: task\ndata: %s\n\n", eventData)
 	}
 	flusher.Flush()
-	
+
 	// Listen for updates or client disconnect
 	ctx := r.Context()
 	taskEventCh := make(chan TaskEvent, 10)
-	
+
 	// Subscribe to task events
 	go func() {
 		for {
@@ -340,7 +340,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -374,7 +374,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	if s.storage == nil {
 		// If storage not configured, return empty list
 		w.Header().Set("Content-Type", "application/json")
@@ -388,32 +388,32 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	
+
 	ctx := r.Context()
-	
+
 	// Fetch recent tasks from different states
 	limit := 50 // Show last 50 tasks
-	
+
 	allTasks := make([]*task.Task, 0, limit)
-	
+
 	// Fetch completed tasks
 	completedTasks, err := s.storage.GetTasksByState(ctx, task.StateCompleted, limit/3)
 	if err == nil {
 		allTasks = append(allTasks, completedTasks...)
 	}
-	
+
 	// Fetch failed tasks
 	failedTasks, err := s.storage.GetTasksByState(ctx, task.StateFailed, limit/3)
 	if err == nil {
 		allTasks = append(allTasks, failedTasks...)
 	}
-	
+
 	// Fetch processing tasks
 	processingTasks, err := s.storage.GetTasksByState(ctx, task.StateProcessing, limit/3)
 	if err == nil {
 		allTasks = append(allTasks, processingTasks...)
 	}
-	
+
 	// Convert to TaskDetail
 	details := make([]TaskDetail, 0, len(allTasks))
 	for _, t := range allTasks {
@@ -428,17 +428,17 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			Error:      t.Error,
 			Metadata:   t.Metadata,
 		}
-		
+
 		if t.StartedAt != nil {
 			detail.StartedAt = t.StartedAt.Format(time.RFC3339)
 		}
 		if t.CompletedAt != nil {
 			detail.CompletedAt = t.CompletedAt.Format(time.RFC3339)
 		}
-		
+
 		details = append(details, detail)
 	}
-	
+
 	// Sort by creation time (most recent first)
 	// Simple bubble sort for small datasets
 	for i := 0; i < len(details)-1; i++ {
@@ -448,7 +448,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"tasks": details,
@@ -466,26 +466,26 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	taskID := r.URL.Path[len("/api/tasks/"):]
 	if taskID == "" {
 		http.Error(w, "Task ID required", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Fetch task from storage
 	if s.storage == nil {
 		http.Error(w, "Storage not configured", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	ctx := r.Context()
 	t, err := s.storage.GetTask(ctx, taskID)
 	if err != nil {
 		http.Error(w, "Task not found", http.StatusNotFound)
 		return
 	}
-	
+
 	detail := TaskDetail{
 		ID:         t.ID,
 		Type:       t.Type,
@@ -498,14 +498,14 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		Metadata:   t.Metadata,
 		Payload:    t.Payload,
 	}
-	
+
 	if t.StartedAt != nil {
 		detail.StartedAt = t.StartedAt.Format(time.RFC3339)
 	}
 	if t.CompletedAt != nil {
 		detail.CompletedAt = t.CompletedAt.Format(time.RFC3339)
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(detail); err != nil {
 		s.logger.Error("Failed to encode task detail", logger.Fields{
@@ -522,14 +522,14 @@ func (s *Server) handleDLQ(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	ctx := r.Context()
 	tasks, err := s.queue.GetDLQTasks(ctx, 100)
 	if err != nil {
 		http.Error(w, "Failed to fetch DLQ tasks", http.StatusInternalServerError)
 		return
 	}
-	
+
 	details := make([]TaskDetail, 0, len(tasks))
 	for _, t := range tasks {
 		detail := TaskDetail{
@@ -550,7 +550,7 @@ func (s *Server) handleDLQ(w http.ResponseWriter, r *http.Request) {
 		}
 		details = append(details, detail)
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"tasks": details,
@@ -564,15 +564,15 @@ func (s *Server) handleDLQ(w http.ResponseWriter, r *http.Request) {
 
 // WorkerDetailResponse represents the response for worker details
 type WorkerDetailResponse struct {
-	ID                string  `json:"id"`
-	State             string  `json:"state"`
-	TasksCompleted    int64   `json:"tasksCompleted"`
-	TasksFailed       int64   `json:"tasksFailed"`
-	TotalIdleTime     string  `json:"totalIdleTime"`
-	TotalBusyTime     string  `json:"totalBusyTime"`
-	AvgProcessingTime string  `json:"avgProcessingTime"`
-	StartTime         string  `json:"startTime"`
-	Uptime            string  `json:"uptime"`
+	ID                string `json:"id"`
+	State             string `json:"state"`
+	TasksCompleted    int64  `json:"tasksCompleted"`
+	TasksFailed       int64  `json:"tasksFailed"`
+	TotalIdleTime     string `json:"totalIdleTime"`
+	TotalBusyTime     string `json:"totalBusyTime"`
+	AvgProcessingTime string `json:"avgProcessingTime"`
+	StartTime         string `json:"startTime"`
+	Uptime            string `json:"uptime"`
 	CurrentTask       *struct {
 		ID          string `json:"id"`
 		Type        string `json:"type"`
@@ -591,7 +591,7 @@ type WorkerSummary struct {
 // handleWorkers returns a list of all active workers
 func (s *Server) handleWorkers(w http.ResponseWriter, r *http.Request) {
 	workers := s.metrics.GetAllWorkerDetails()
-	
+
 	summaries := make([]WorkerSummary, 0, len(workers))
 	for _, worker := range workers {
 		summaries = append(summaries, WorkerSummary{
@@ -600,7 +600,7 @@ func (s *Server) handleWorkers(w http.ResponseWriter, r *http.Request) {
 			TasksCompleted: worker.TasksCompleted,
 		})
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"workers": summaries,
@@ -620,13 +620,13 @@ func (s *Server) handleWorkerDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Worker ID required", http.StatusBadRequest)
 		return
 	}
-	
+
 	stats, currentTask, exists := s.metrics.GetWorkerDetails(workerID)
 	if !exists {
 		http.Error(w, "Worker not found", http.StatusNotFound)
 		return
 	}
-	
+
 	// Calculate average processing time
 	var avgProcessingTime time.Duration
 	if len(stats.ProcessingTimes) > 0 {
@@ -636,7 +636,7 @@ func (s *Server) handleWorkerDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		avgProcessingTime = sum / time.Duration(len(stats.ProcessingTimes))
 	}
-	
+
 	// Build response
 	response := WorkerDetailResponse{
 		ID:                stats.ID,
@@ -649,7 +649,7 @@ func (s *Server) handleWorkerDetail(w http.ResponseWriter, r *http.Request) {
 		StartTime:         stats.StartTime.Format(time.RFC3339),
 		Uptime:            time.Since(stats.StartTime).Round(time.Second).String(),
 	}
-	
+
 	// Add current task if processing one
 	if currentTask != nil {
 		response.CurrentTask = &struct {
@@ -664,7 +664,7 @@ func (s *Server) handleWorkerDetail(w http.ResponseWriter, r *http.Request) {
 			ElapsedTime: time.Since(currentTask.StartTime).Round(time.Millisecond).String(),
 		}
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		s.logger.Error("Failed to encode response", logger.Fields{
@@ -676,19 +676,19 @@ func (s *Server) handleWorkerDetail(w http.ResponseWriter, r *http.Request) {
 // handleHealth returns health status
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	health := map[string]interface{}{
-		"status": "healthy",
+		"status":    "healthy",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	
+
 	// Check queue health
 	if err := s.queue.Health(ctx); err != nil {
 		health["status"] = "unhealthy"
 		health["queue_error"] = err.Error()
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(health); err != nil {
 		s.logger.Error("Failed to encode health response", logger.Fields{
@@ -707,7 +707,7 @@ func (s *Server) BroadcastTaskEvent(taskID, taskType, status string, duration ti
 		Duration:  duration.Round(time.Millisecond).String(),
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
-	
+
 	// Add to recent events
 	s.eventsMu.Lock()
 	s.recentEvents = append(s.recentEvents, event)
@@ -715,7 +715,7 @@ func (s *Server) BroadcastTaskEvent(taskID, taskType, status string, duration ti
 		s.recentEvents = s.recentEvents[1:]
 	}
 	s.eventsMu.Unlock()
-	
+
 	// Broadcast to all connections
 	select {
 	case s.taskEvents <- event:
@@ -728,7 +728,7 @@ func (s *Server) BroadcastTaskEvent(taskID, taskType, status string, duration ti
 func (s *Server) getRecentEvents() []TaskEvent {
 	s.eventsMu.RLock()
 	defer s.eventsMu.RUnlock()
-	
+
 	// Return a copy
 	events := make([]TaskEvent, len(s.recentEvents))
 	copy(events, s.recentEvents)
@@ -739,16 +739,16 @@ func (s *Server) getRecentEvents() []TaskEvent {
 func (s *Server) collectMetrics() MetricsUpdate {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	// Update queue depth
 	if err := s.metrics.UpdateQueueDepth(ctx); err != nil {
 		s.logger.Error("Failed to update queue depth", logger.Fields{
 			"error": err.Error(),
 		})
 	}
-	
+
 	snapshot := s.metrics.Snapshot()
-	
+
 	// Get queue depth trend (last 5 minutes)
 	trend := s.metrics.GetQueueDepthTrend(5 * time.Minute)
 	queueTrend := make([]QueueDataPoint, 0, len(trend))
@@ -758,7 +758,7 @@ func (s *Server) collectMetrics() MetricsUpdate {
 			Depth:     point.Depth,
 		})
 	}
-	
+
 	// Get throughput trend (last 5 minutes)
 	throughputHistory := s.metrics.GetThroughputTrend(5 * time.Minute)
 	throughputTrend := make([]ThroughputDataPoint, 0, len(throughputHistory))
@@ -768,22 +768,22 @@ func (s *Server) collectMetrics() MetricsUpdate {
 			Throughput: point.TasksPerSec,
 		})
 	}
-	
+
 	// Get DLQ size
 	dlqSize, _ := s.queue.GetDLQSize(ctx)
-	
+
 	// Calculate worker utilization
 	var utilization float64
 	if snapshot.ActiveWorkers > 0 {
 		utilization = float64(snapshot.BusyWorkers) / float64(snapshot.ActiveWorkers) * 100
 	}
-	
+
 	// Check queue health
 	queueHealth := "healthy"
 	if err := s.queue.Health(ctx); err != nil {
 		queueHealth = "unhealthy"
 	}
-	
+
 	// Get workers list
 	workers := s.metrics.GetAllWorkerDetails()
 	workersList := make([]WorkerSummary, 0, len(workers))
@@ -794,7 +794,7 @@ func (s *Server) collectMetrics() MetricsUpdate {
 			TasksCompleted: worker.TasksCompleted,
 		})
 	}
-	
+
 	return MetricsUpdate{
 		Timestamp:         time.Now().Format(time.RFC3339),
 		QueueDepth:        snapshot.QueueDepth,
@@ -848,7 +848,7 @@ func (s *Server) broadcastMetrics() {
 func (s *Server) updateMetricsLoop() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-s.done:
@@ -883,12 +883,12 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		
+
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

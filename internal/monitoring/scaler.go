@@ -12,14 +12,14 @@ import (
 
 // ScalingDecision represents a decision to scale workers
 type ScalingDecision struct {
-	Action        ScalingAction
-	CurrentCount  int32
-	DesiredCount  int32
-	Reason        string
-	QueueDepth    int64
-	IdleTime      time.Duration
-	Throughput    float64
-	DecisionTime  time.Time
+	Action       ScalingAction
+	CurrentCount int32
+	DesiredCount int32
+	Reason       string
+	QueueDepth   int64
+	IdleTime     time.Duration
+	Throughput   float64
+	DecisionTime time.Time
 }
 
 // ScalingAction represents the type of scaling action
@@ -52,15 +52,15 @@ type AutoScaler struct {
 	controller WorkerController
 	config     config.AutoScalingConfig
 
-	mu               sync.RWMutex
-	running          bool
-	stopChan         chan struct{}
-	decisions        []ScalingDecision
-	lastScaleUp      time.Time
-	lastScaleDown    time.Time
-	consecutiveIdle  int
-	scaleUpCount     int64
-	scaleDownCount   int64
+	mu              sync.RWMutex
+	running         bool
+	stopChan        chan struct{}
+	decisions       []ScalingDecision
+	lastScaleUp     time.Time
+	lastScaleDown   time.Time
+	consecutiveIdle int
+	scaleUpCount    int64
+	scaleDownCount  int64
 
 	// Cooldown prevents rapid scaling oscillations
 	scaleUpCooldown   time.Duration
@@ -75,8 +75,8 @@ func NewAutoScaler(metrics *Metrics, controller WorkerController, cfg config.Aut
 		config:            cfg,
 		stopChan:          make(chan struct{}),
 		decisions:         make([]ScalingDecision, 0, 100),
-		scaleUpCooldown:   30 * time.Second,  // Wait 30s after scaling up
-		scaleDownCooldown: 2 * time.Minute,   // Wait 2m after scaling down
+		scaleUpCooldown:   30 * time.Second, // Wait 30s after scaling up
+		scaleDownCooldown: 2 * time.Minute,  // Wait 2m after scaling down
 	}
 }
 
@@ -420,12 +420,12 @@ func (s *AutoScaler) GetStats() map[string]interface{} {
 	defer s.mu.RUnlock()
 
 	return map[string]interface{}{
-		"running":           s.running,
-		"scale_up_count":    s.scaleUpCount,
-		"scale_down_count":  s.scaleDownCount,
-		"last_scale_up":     s.lastScaleUp,
-		"last_scale_down":   s.lastScaleDown,
-		"decisions_count":   len(s.decisions),
-		"consecutive_idle":  s.consecutiveIdle,
+		"running":          s.running,
+		"scale_up_count":   s.scaleUpCount,
+		"scale_down_count": s.scaleDownCount,
+		"last_scale_up":    s.lastScaleUp,
+		"last_scale_down":  s.lastScaleDown,
+		"decisions_count":  len(s.decisions),
+		"consecutive_idle": s.consecutiveIdle,
 	}
 }

@@ -68,10 +68,10 @@ func Init(level, format string, component string) {
 // New creates a new logger instance
 func New(levelStr, format, component string) *Logger {
 	level := parseLevel(levelStr)
-	
+
 	// Enable color output if writing to terminal
 	colorOutput := format == "text" && isTerminal(os.Stdout)
-	
+
 	return &Logger{
 		level:       level,
 		output:      os.Stdout,
@@ -175,11 +175,11 @@ func (l *Logger) logJSON(timestamp string, level Level, msg string, fields Field
 	output.WriteString("{")
 	output.WriteString(fmt.Sprintf(`"timestamp":"%s"`, timestamp))
 	output.WriteString(fmt.Sprintf(`,"level":"%s"`, levelNames[level]))
-	
+
 	if l.component != "" {
 		output.WriteString(fmt.Sprintf(`,"component":"%s"`, l.component))
 	}
-	
+
 	output.WriteString(fmt.Sprintf(`,"message":"%s"`, escapeJSON(msg)))
 
 	// Add fields
@@ -231,7 +231,7 @@ func mergeFields(fields ...Fields) Fields {
 	if len(fields) == 0 {
 		return Fields{}
 	}
-	
+
 	result := Fields{}
 	for _, f := range fields {
 		for k, v := range f {

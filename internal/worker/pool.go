@@ -40,8 +40,8 @@ type Pool struct {
 type WorkerState string
 
 const (
-	WorkerStateIdle       WorkerState = "idle"
-	WorkerStateBusy       WorkerState = "busy"
+	WorkerStateIdle         WorkerState = "idle"
+	WorkerStateBusy         WorkerState = "busy"
 	WorkerStateShuttingDown WorkerState = "shutting_down"
 )
 
@@ -282,4 +282,3 @@ func (p *Pool) GetStats() map[string]interface{} {
 		"max_workers":   p.maxWorkers,
 	}
 }
-

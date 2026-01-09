@@ -54,9 +54,9 @@ func main() {
 
 	// Setup Redis storage - create Redis client for storage
 	client := redis.NewClient(&redis.Options{
-		Addr:   "localhost:6379",
+		Addr:     "localhost:6379",
 		Password: "",
-		DB:    0,
+		DB:       0,
 		PoolSize: 10,
 	})
 	redisStorage := storage.NewRedisStorage(client)
@@ -94,9 +94,9 @@ func main() {
 
 	// Create worker pool
 	pool := worker.NewPool(redisQueue, redisStorage, registry, metrics, worker.PoolConfig{
-		MinWorkers:   cfg.Worker.AutoScaling.MinWorkers,
-		MaxWorkers:   cfg.Worker.AutoScaling.MaxWorkers,
-		PollInterval:  100 * time.Millisecond,
+		MinWorkers:      cfg.Worker.AutoScaling.MinWorkers,
+		MaxWorkers:      cfg.Worker.AutoScaling.MaxWorkers,
+		PollInterval:    100 * time.Millisecond,
 		ShutdownTimeout: 10 * time.Second,
 	})
 

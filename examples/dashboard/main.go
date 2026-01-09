@@ -61,17 +61,17 @@ func main() {
 
 	// Initialize task registry with sample handlers
 	registry := task.NewRegistry()
-	
+
 	// Register sample task handlers
 	registry.Register("process_image", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		// Simulate image processing work
 		time.Sleep(time.Duration(rand.Intn(500)+200) * time.Millisecond)
-		
+
 		// 10% chance of failure for demo purposes
 		if rand.Float64() < 0.10 {
 			return nil, fmt.Errorf("image processing failed: corrupted file")
 		}
-		
+
 		log.Printf("✓ Processed image task")
 		return "success", nil
 	})
@@ -79,12 +79,12 @@ func main() {
 	registry.Register("send_email", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		// Simulate email sending
 		time.Sleep(time.Duration(rand.Intn(300)+100) * time.Millisecond)
-		
+
 		// 5% chance of failure
 		if rand.Float64() < 0.05 {
 			return nil, fmt.Errorf("email send failed: SMTP timeout")
 		}
-		
+
 		log.Printf("Sent email task")
 		return "success", nil
 	})
@@ -92,12 +92,12 @@ func main() {
 	registry.Register("generate_report", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		// Simulate report generation
 		time.Sleep(time.Duration(rand.Intn(800)+400) * time.Millisecond)
-		
+
 		// 8% chance of failure
 		if rand.Float64() < 0.08 {
 			return nil, fmt.Errorf("report generation failed: insufficient data")
 		}
-		
+
 		log.Printf("Generated report task")
 		return "success", nil
 	})
@@ -105,12 +105,12 @@ func main() {
 	registry.Register("data_export", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		// Simulate data export
 		time.Sleep(time.Duration(rand.Intn(600)+300) * time.Millisecond)
-		
+
 		// 12% chance of failure
 		if rand.Float64() < 0.12 {
 			return nil, fmt.Errorf("data export failed: disk full")
 		}
-		
+
 		log.Printf("Exported data task")
 		return "success", nil
 	})
@@ -118,19 +118,19 @@ func main() {
 	registry.Register("backup_database", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
 		// Simulate database backup
 		time.Sleep(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
-		
+
 		// 3% chance of failure
 		if rand.Float64() < 0.03 {
 			return nil, fmt.Errorf("backup failed: connection lost")
 		}
-		
+
 		log.Printf("Backed up database task")
 		return "success", nil
 	})
 
 	// Start worker pool with 5 workers
 	log.Println("Starting worker pool with 5 workers...")
-	
+
 	// Start dashboard server first so workers can broadcast to it
 	log.Println("Starting dashboard server on http://localhost:8080")
 	dashboard := web.NewServer(web.Config{
@@ -145,26 +145,26 @@ func main() {
 	go func() {
 		serverErrChan <- dashboard.Start()
 	}()
-	
+
 	// Give server a moment to start
 	time.Sleep(500 * time.Millisecond)
-	
+
 	workers := make([]*worker.Worker, 5)
 	for i := 0; i < 5; i++ {
 		w := worker.NewWorker(q, store, registry, worker.Config{
 			ID:           fmt.Sprintf("worker-%d", i+1),
 			PollInterval: 100 * time.Millisecond,
 		})
-		
+
 		// Register worker with metrics
 		metrics.RegisterWorker(w.ID())
-		
+
 		// Start worker with instrumentation and task event broadcasting
 		instrumentedWorker := worker.NewInstrumentedWorker(w, metrics)
-		
+
 		// Wrap to broadcast task events to dashboard
 		go startWorkerWithEventBroadcast(ctx, instrumentedWorker, dashboard)
-		
+
 		workers[i] = w
 	}
 
@@ -309,9 +309,9 @@ func generateSingleTask(ctx context.Context, q queue.Queue, metrics *monitoring.
 	priority := priorities[rand.Intn(len(priorities))]
 
 	payload := map[string]interface{}{
-		"user_id":    rand.Intn(10000),
-		"timestamp":  time.Now().Unix(),
-		"batch_id":   fmt.Sprintf("batch-%d", rand.Intn(100)),
+		"user_id":   rand.Intn(10000),
+		"timestamp": time.Now().Unix(),
+		"batch_id":  fmt.Sprintf("batch-%d", rand.Intn(100)),
 		"parameters": map[string]interface{}{
 			"quality": "high",
 			"format":  "json",
@@ -332,7 +332,7 @@ func generateSingleTask(ctx context.Context, q queue.Queue, metrics *monitoring.
 	}
 
 	metrics.RecordTaskEnqueued()
-	
+
 	// Log only critical tasks to reduce noise
 	if priority == task.PriorityCritical {
 		log.Printf("Enqueued CRITICAL task: %s (type: %s, id: %s)", t.Type, t.Type, t.ID)
@@ -347,21 +347,21 @@ func startWorkerWithEventBroadcast(ctx context.Context, iw *worker.InstrumentedW
 		log.Printf("Failed to start worker: %v", err)
 		return
 	}
-	
+
 	// Monitor worker stats and broadcast task events
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	lastProcessed := int64(0)
 	lastFailed := int64(0)
-	
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			processed, failed, _ := iw.Stats()
-			
+
 			// Detect completed tasks
 			if processed > lastProcessed {
 				newCompleted := processed - lastProcessed
@@ -372,7 +372,7 @@ func startWorkerWithEventBroadcast(ctx context.Context, iw *worker.InstrumentedW
 					taskTypes := []string{"process_image", "send_email", "generate_report", "data_export", "backup_database"}
 					taskType := taskTypes[rand.Intn(len(taskTypes))]
 					duration := time.Duration(rand.Intn(800)+200) * time.Millisecond
-					
+
 					dashboard.BroadcastTaskEvent(
 						fmt.Sprintf("task-%d", time.Now().UnixNano()),
 						taskType,
@@ -382,7 +382,7 @@ func startWorkerWithEventBroadcast(ctx context.Context, iw *worker.InstrumentedW
 				}
 				lastProcessed = processed
 			}
-			
+
 			// Detect failed tasks
 			if failed > lastFailed {
 				newFailed := failed - lastFailed
@@ -391,7 +391,7 @@ func startWorkerWithEventBroadcast(ctx context.Context, iw *worker.InstrumentedW
 					taskTypes := []string{"process_image", "send_email", "generate_report", "data_export", "backup_database"}
 					taskType := taskTypes[rand.Intn(len(taskTypes))]
 					duration := time.Duration(rand.Intn(500)+100) * time.Millisecond
-					
+
 					dashboard.BroadcastTaskEvent(
 						fmt.Sprintf("task-%d", time.Now().UnixNano()),
 						taskType,

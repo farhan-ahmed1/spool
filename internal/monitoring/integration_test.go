@@ -10,7 +10,7 @@ import (
 // This test requires Redis to be running
 func TestAutoScaling_Integration(t *testing.T) {
 	t.Skip("Integration test moved to tests/integration - skipping to avoid import cycle")
-	
+
 	// Note: This test has been moved to tests/integration/autoscaling_test.go
 	// to avoid import cycles between monitoring and worker packages.
 	// The full integration test includes:
@@ -24,7 +24,7 @@ func TestAutoScaling_Integration(t *testing.T) {
 // TestAutoScaling_LoadPattern tests auto-scaling with varying load
 func TestAutoScaling_LoadPattern(t *testing.T) {
 	t.Skip("Load pattern test moved to tests/integration - skipping to avoid import cycle")
-	
+
 	// Note: This test demonstrates that the scaler can handle
 	// sudden spikes and drops in queue depth. Full implementation
 	// is in tests/integration/autoscaling_test.go
@@ -33,10 +33,10 @@ func TestAutoScaling_LoadPattern(t *testing.T) {
 // TestScalingScenarios provides example scenarios for testing auto-scaling
 func TestScalingScenarios(t *testing.T) {
 	t.Log("Auto-scaling test scenarios:")
-	
+
 	scenarios := []struct {
-		name          string
-		queueDepth    int
+		name           string
+		queueDepth     int
 		currentWorkers int
 		expectedAction string
 	}{
@@ -66,7 +66,7 @@ func ExampleAutoScaler() {
 	fmt.Println("3. Configure auto-scaling parameters")
 	fmt.Println("4. Create and start auto-scaler")
 	fmt.Println("5. Auto-scaler monitors metrics and adjusts workers")
-	
+
 	// Output:
 	// Auto-Scaler Example:
 	// 1. Create metrics collector
@@ -80,13 +80,13 @@ func ExampleAutoScaler() {
 func BenchmarkAutoScaler_DecisionMaking(b *testing.B) {
 	q := newMockQueue(100)
 	metrics := NewMetrics(q)
-	
+
 	b.Log("Benchmarking auto-scaler decision making speed")
 	b.Log("This helps ensure the scaler doesn't impact system performance")
-	
+
 	// Would run actual benchmark if controller interface was available
 	// In practice, scaler decision overhead should be < 1ms
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Simulate decision making
@@ -95,4 +95,3 @@ func BenchmarkAutoScaler_DecisionMaking(b *testing.B) {
 		time.Sleep(1 * time.Microsecond) // Simulate minimal decision time
 	}
 }
-

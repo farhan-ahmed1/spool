@@ -19,13 +19,14 @@ import (
 //   - Clean up resources on error
 //
 // Example:
-//   handler := func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
-//       var data EmailPayload
-//       if err := json.Unmarshal(payload, &data); err != nil {
-//           return nil, err
-//       }
-//       return sendEmail(ctx, data)
-//   }
+//
+//	handler := func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+//	    var data EmailPayload
+//	    if err := json.Unmarshal(payload, &data); err != nil {
+//	        return nil, err
+//	    }
+//	    return sendEmail(ctx, data)
+//	}
 type Handler func(ctx context.Context, payload json.RawMessage) (interface{}, error)
 
 // Registry manages task handlers.
@@ -33,7 +34,7 @@ type Handler func(ctx context.Context, payload json.RawMessage) (interface{}, er
 // Each task type can only have one registered handler.
 type Registry struct {
 	// mu protects concurrent access to handlers map
-	mu       sync.RWMutex
+	mu sync.RWMutex
 	// handlers maps task types to their handler functions
 	handlers map[string]Handler
 }
@@ -49,11 +50,12 @@ func NewRegistry() *Registry {
 // Returns an error if a handler for this type already exists.
 //
 // Example:
-//   registry := NewRegistry()
-//   err := registry.Register("send_email", emailHandler)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	registry := NewRegistry()
+//	err := registry.Register("send_email", emailHandler)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //
 // Note: Register must be called before starting workers, as it is not
 // safe to register handlers while workers are processing tasks.

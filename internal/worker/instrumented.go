@@ -50,13 +50,13 @@ func (iw *InstrumentedWorker) syncStatsLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			processed, failed, _ := iw.worker.Stats()
-			
+
 			// Check if worker is idle or busy
 			if iw.worker.IsRunning() {
 				// If tasks were completed since last sync, worker was busy
 				newTasks := processed - iw.lastProcessed
 				newFailures := failed - iw.lastFailed
-				
+
 				if newTasks > 0 || newFailures > 0 {
 					// Record completed tasks with metrics
 					for i := int64(0); i < newTasks; i++ {
@@ -64,16 +64,16 @@ func (iw *InstrumentedWorker) syncStatsLoop(ctx context.Context) {
 						iw.metrics.RecordTaskCompleted(duration)
 						iw.metrics.RecordWorkerTaskCompleted(iw.worker.ID(), duration, true)
 					}
-					
+
 					// Record failed tasks
 					for i := int64(0); i < newFailures; i++ {
 						duration := 50 * time.Millisecond // Approximate
 						iw.metrics.RecordWorkerTaskCompleted(iw.worker.ID(), duration, false)
 					}
-					
+
 					iw.lastProcessed = processed
 					iw.lastFailed = failed
-					
+
 					// After processing tasks, mark as idle
 					iw.metrics.MarkWorkerIdle(iw.worker.ID())
 				}
@@ -86,7 +86,7 @@ func (iw *InstrumentedWorker) syncStatsLoop(ctx context.Context) {
 func (iw *InstrumentedWorker) Stop() error {
 	// Signal stats sync to stop
 	close(iw.stopStatsSyncChan)
-	
+
 	err := iw.worker.Stop()
 
 	// Unregister worker from metrics
@@ -124,7 +124,7 @@ func (iw *InstrumentedWorker) IsRunning() bool {
 func (iw *InstrumentedWorker) Shutdown(ctx context.Context) error {
 	// Signal stats sync to stop
 	close(iw.stopStatsSyncChan)
-	
+
 	err := iw.worker.Shutdown(ctx)
 
 	// Unregister worker from metrics
