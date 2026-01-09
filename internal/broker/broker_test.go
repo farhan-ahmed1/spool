@@ -337,13 +337,15 @@ func TestNewBroker(t *testing.T) {
 func TestBroker_StartAndStop(t *testing.T) {
 	broker, _, _ := setupTestBroker(t)
 
-	// Test starting broker in goroutine
+	// Test starting broker in goroutine with proper error handling
+	startErr := make(chan error, 1)
 	go func() {
 		err := broker.Start()
-		// Server will return error when shutdown, which is expected
+		// Server shutdown is expected and not an error
 		if err != nil && err != http.ErrServerClosed {
-			t.Errorf("Unexpected error starting broker: %v", err)
+			startErr <- err
 		}
+		close(startErr)
 	}()
 
 	// Wait for broker to be ready
@@ -361,6 +363,16 @@ func TestBroker_StartAndStop(t *testing.T) {
 	err := broker.Stop(ctx)
 	if err != nil {
 		t.Errorf("Error stopping broker: %v", err)
+	}
+
+	// Wait for Start() goroutine to finish and check for unexpected errors
+	select {
+	case err := <-startErr:
+		if err != nil {
+			t.Errorf("broker.Start() unexpected error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("broker.Start() goroutine did not finish within timeout")
 	}
 }
 
@@ -388,11 +400,15 @@ func TestBroker_Ready(t *testing.T) {
 		// Expected
 	}
 
-	// Start broker
+	// Start broker in goroutine with proper error handling
+	startErr := make(chan error, 1)
 	go func() {
-		if err := broker.Start(); err != nil {
-			t.Errorf("broker.Start() error: %v", err)
+		err := broker.Start()
+		// Server shutdown is expected and not an error
+		if err != nil && err != http.ErrServerClosed {
+			startErr <- err
 		}
+		close(startErr)
 	}()
 
 	// Ready channel should be closed after Start
@@ -403,10 +419,20 @@ func TestBroker_Ready(t *testing.T) {
 		t.Fatal("Ready channel should be closed after Start")
 	}
 
-	// Cleanup
+	// Cleanup - stop the broker first
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := broker.Stop(ctx); err != nil {
 		t.Errorf("broker.Stop() error: %v", err)
+	}
+
+	// Wait for Start() goroutine to finish and check for unexpected errors
+	select {
+	case err := <-startErr:
+		if err != nil {
+			t.Errorf("broker.Start() unexpected error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("broker.Start() goroutine did not finish within timeout")
 	}
 }

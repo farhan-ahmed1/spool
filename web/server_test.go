@@ -464,18 +464,25 @@ func TestServerStartStop(t *testing.T) {
 		Storage: storage,
 	})
 
-	// Start server in goroutine
-	errChan := make(chan error, 1)
+	// Start server in goroutine with proper error handling
+	startErr := make(chan error, 1)
 	go func() {
-		errChan <- server.Start()
+		err := server.Start()
+		// Server shutdown is expected and not an error
+		if err != nil && err != http.ErrServerClosed {
+			startErr <- err
+		}
+		close(startErr)
 	}()
 
 	// Wait for server to be ready
 	select {
 	case <-server.ready:
 		// Server is ready
-	case err := <-errChan:
-		t.Fatalf("Server failed to start: %v", err)
+	case err := <-startErr:
+		if err != nil {
+			t.Fatalf("Server failed to start: %v", err)
+		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for server to start")
 	}
@@ -486,6 +493,16 @@ func TestServerStartStop(t *testing.T) {
 
 	err := server.Stop(ctx)
 	assert.NoError(t, err)
+
+	// Wait for Start() goroutine to finish and check for unexpected errors
+	select {
+	case err := <-startErr:
+		if err != nil {
+			t.Errorf("server.Start() unexpected error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("server.Start() goroutine did not finish within timeout")
+	}
 }
 
 func TestCORSMiddleware(t *testing.T) {
@@ -1008,9 +1025,15 @@ func TestReadyChannel(t *testing.T) {
 		Storage: storage,
 	})
 
-	// Start server in goroutine
+	// Start server in goroutine with proper error handling
+	startErr := make(chan error, 1)
 	go func() {
-		_ = server.Start()
+		err := server.Start()
+		// Server shutdown is expected and not an error
+		if err != nil && err != http.ErrServerClosed {
+			startErr <- err
+		}
+		close(startErr)
 	}()
 
 	// Wait for ready signal
@@ -1021,10 +1044,22 @@ func TestReadyChannel(t *testing.T) {
 		t.Fatal("Server did not signal ready")
 	}
 
-	// Clean up
+	// Clean up - stop server first
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = server.Stop(ctx)
+	if err := server.Stop(ctx); err != nil {
+		t.Errorf("server.Stop() error: %v", err)
+	}
+
+	// Wait for Start() goroutine to finish and check for unexpected errors
+	select {
+	case err := <-startErr:
+		if err != nil {
+			t.Errorf("server.Start() unexpected error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("server.Start() goroutine did not finish within timeout")
+	}
 }
 
 // TestStopWithoutStart tests stopping a server that wasn't started
