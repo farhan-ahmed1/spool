@@ -1,5 +1,11 @@
 # Spool
 
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Code Coverage](https://img.shields.io/badge/coverage-75%25-brightgreen.svg)](docs/04_COVERAGE_REPORT.md)
+[![Performance](https://img.shields.io/badge/throughput-3000%20tasks%2Fs-orange.svg)](docs/05_BENCHMARKS.md)
+[![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/)
+
 A distributed task queue system built in Go with auto-scaling workers and real-time monitoring.
 
 ## Overview
@@ -22,6 +28,21 @@ Client → Broker (HTTP) → Redis Queue → Workers → Redis Storage → Dashb
 
 Tasks flow through a priority queue system (5 levels), get distributed to workers, and results are stored in Redis. The auto-scaler watches queue depth
 and dynamically adjusts the worker pool. Dashboard shows everything in real-time via WebSocket connections.
+
+## Demo
+
+> 🎬 **Demo video and screenshots coming soon!** 
+
+**Want to see it in action?** Run locally:
+
+```bash
+make docker-up
+go run cmd/broker/main.go &
+go run cmd/worker/main.go &
+go run examples/simple/main.go
+```
+
+Open `http://localhost:8080` to see the real-time dashboard.
 
 ## Running Locally
 
