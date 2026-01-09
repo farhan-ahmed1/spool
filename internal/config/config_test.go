@@ -10,6 +10,128 @@ import (
 // Default() Tests
 // =============================================================================
 
+// Helper function to validate Redis configuration defaults
+func validateRedisDefaults(t *testing.T, redis RedisConfig) {
+	t.Helper()
+
+	defaults := map[string]interface{}{
+		"Host":     "localhost",
+		"Port":     6379,
+		"Password": "",
+		"DB":       0,
+		"PoolSize": 10,
+	}
+
+	checks := map[string]func() (interface{}, interface{}){
+		"Host":     func() (interface{}, interface{}) { return redis.Host, defaults["Host"] },
+		"Port":     func() (interface{}, interface{}) { return redis.Port, defaults["Port"] },
+		"Password": func() (interface{}, interface{}) { return redis.Password, defaults["Password"] },
+		"DB":       func() (interface{}, interface{}) { return redis.DB, defaults["DB"] },
+		"PoolSize": func() (interface{}, interface{}) { return redis.PoolSize, defaults["PoolSize"] },
+	}
+
+	for field, check := range checks {
+		actual, expected := check()
+		if actual != expected {
+			t.Errorf("expected Redis.%s = %v, got %v", field, expected, actual)
+		}
+	}
+}
+
+// Helper function to validate Worker configuration defaults
+func validateWorkerDefaults(t *testing.T, worker WorkerConfig) {
+	t.Helper()
+
+	checks := map[string]func() (interface{}, interface{}){
+		"Concurrency":         func() (interface{}, interface{}) { return worker.Concurrency, 5 },
+		"ShutdownTimeout":     func() (interface{}, interface{}) { return worker.ShutdownTimeout, 30 * time.Second },
+		"DefaultTimeout":      func() (interface{}, interface{}) { return worker.DefaultTimeout, 30 * time.Second },
+		"HealthCheckInterval": func() (interface{}, interface{}) { return worker.HealthCheckInterval, 10 * time.Second },
+	}
+
+	for field, check := range checks {
+		actual, expected := check()
+		if actual != expected {
+			t.Errorf("expected Worker.%s = %v, got %v", field, expected, actual)
+		}
+	}
+}
+
+// Helper function to validate AutoScaling configuration defaults
+func validateAutoScalingDefaults(t *testing.T, autoScaling AutoScalingConfig) {
+	t.Helper()
+
+	checks := map[string]func() (interface{}, interface{}){
+		"Enabled":           func() (interface{}, interface{}) { return autoScaling.Enabled, false },
+		"MinWorkers":        func() (interface{}, interface{}) { return autoScaling.MinWorkers, 1 },
+		"MaxWorkers":        func() (interface{}, interface{}) { return autoScaling.MaxWorkers, 10 },
+		"ScaleUpThreshold":  func() (interface{}, interface{}) { return autoScaling.ScaleUpThreshold, 100 },
+		"ScaleDownIdleTime": func() (interface{}, interface{}) { return autoScaling.ScaleDownIdleTime, 5 * time.Minute },
+		"CheckInterval":     func() (interface{}, interface{}) { return autoScaling.CheckInterval, 30 * time.Second },
+	}
+
+	for field, check := range checks {
+		actual, expected := check()
+		if actual != expected {
+			t.Errorf("expected AutoScaling.%s = %v, got %v", field, expected, actual)
+		}
+	}
+}
+
+// Helper function to validate Broker configuration defaults
+func validateBrokerDefaults(t *testing.T, broker BrokerConfig) {
+	t.Helper()
+
+	checks := map[string]func() (interface{}, interface{}){
+		"ListenAddr":      func() (interface{}, interface{}) { return broker.ListenAddr, ":8080" },
+		"RetentionPeriod": func() (interface{}, interface{}) { return broker.RetentionPeriod, 24 * time.Hour },
+		"DLQEnabled":      func() (interface{}, interface{}) { return broker.DLQEnabled, true },
+		"DLQRetentionDay": func() (interface{}, interface{}) { return broker.DLQRetentionDay, 7 },
+	}
+
+	for field, check := range checks {
+		actual, expected := check()
+		if actual != expected {
+			t.Errorf("expected Broker.%s = %v, got %v", field, expected, actual)
+		}
+	}
+}
+
+// Helper function to validate Dashboard configuration defaults
+func validateDashboardDefaults(t *testing.T, dashboard DashboardConfig) {
+	t.Helper()
+
+	checks := map[string]func() (interface{}, interface{}){
+		"Enabled":    func() (interface{}, interface{}) { return dashboard.Enabled, true },
+		"ListenAddr": func() (interface{}, interface{}) { return dashboard.ListenAddr, ":8080" },
+		"RefreshMS":  func() (interface{}, interface{}) { return dashboard.RefreshMS, 1000 },
+	}
+
+	for field, check := range checks {
+		actual, expected := check()
+		if actual != expected {
+			t.Errorf("expected Dashboard.%s = %v, got %v", field, expected, actual)
+		}
+	}
+}
+
+// Helper function to validate Logging configuration defaults
+func validateLoggingDefaults(t *testing.T, logging LoggingConfig) {
+	t.Helper()
+
+	checks := map[string]func() (interface{}, interface{}){
+		"Level":  func() (interface{}, interface{}) { return logging.Level, "info" },
+		"Format": func() (interface{}, interface{}) { return logging.Format, "text" },
+	}
+
+	for field, check := range checks {
+		actual, expected := check()
+		if actual != expected {
+			t.Errorf("expected Logging.%s = %v, got %v", field, expected, actual)
+		}
+	}
+}
+
 func TestDefault(t *testing.T) {
 	// Clear environment variables that might affect defaults
 	originalHost := os.Getenv("REDIS_HOST")
@@ -28,94 +150,27 @@ func TestDefault(t *testing.T) {
 	cfg := Default()
 
 	t.Run("Redis defaults", func(t *testing.T) {
-		if cfg.Redis.Host != "localhost" {
-			t.Errorf("expected Redis.Host = 'localhost', got '%s'", cfg.Redis.Host)
-		}
-		if cfg.Redis.Port != 6379 {
-			t.Errorf("expected Redis.Port = 6379, got %d", cfg.Redis.Port)
-		}
-		if cfg.Redis.Password != "" {
-			t.Errorf("expected Redis.Password = '', got '%s'", cfg.Redis.Password)
-		}
-		if cfg.Redis.DB != 0 {
-			t.Errorf("expected Redis.DB = 0, got %d", cfg.Redis.DB)
-		}
-		if cfg.Redis.PoolSize != 10 {
-			t.Errorf("expected Redis.PoolSize = 10, got %d", cfg.Redis.PoolSize)
-		}
+		validateRedisDefaults(t, cfg.Redis)
 	})
 
 	t.Run("Worker defaults", func(t *testing.T) {
-		if cfg.Worker.Concurrency != 5 {
-			t.Errorf("expected Worker.Concurrency = 5, got %d", cfg.Worker.Concurrency)
-		}
-		if cfg.Worker.ShutdownTimeout != 30*time.Second {
-			t.Errorf("expected Worker.ShutdownTimeout = 30s, got %v", cfg.Worker.ShutdownTimeout)
-		}
-		if cfg.Worker.DefaultTimeout != 30*time.Second {
-			t.Errorf("expected Worker.DefaultTimeout = 30s, got %v", cfg.Worker.DefaultTimeout)
-		}
-		if cfg.Worker.HealthCheckInterval != 10*time.Second {
-			t.Errorf("expected Worker.HealthCheckInterval = 10s, got %v", cfg.Worker.HealthCheckInterval)
-		}
+		validateWorkerDefaults(t, cfg.Worker)
 	})
 
 	t.Run("AutoScaling defaults", func(t *testing.T) {
-		as := cfg.Worker.AutoScaling
-		if as.Enabled != false {
-			t.Errorf("expected AutoScaling.Enabled = false, got %v", as.Enabled)
-		}
-		if as.MinWorkers != 1 {
-			t.Errorf("expected AutoScaling.MinWorkers = 1, got %d", as.MinWorkers)
-		}
-		if as.MaxWorkers != 10 {
-			t.Errorf("expected AutoScaling.MaxWorkers = 10, got %d", as.MaxWorkers)
-		}
-		if as.ScaleUpThreshold != 100 {
-			t.Errorf("expected AutoScaling.ScaleUpThreshold = 100, got %d", as.ScaleUpThreshold)
-		}
-		if as.ScaleDownIdleTime != 5*time.Minute {
-			t.Errorf("expected AutoScaling.ScaleDownIdleTime = 5m, got %v", as.ScaleDownIdleTime)
-		}
-		if as.CheckInterval != 30*time.Second {
-			t.Errorf("expected AutoScaling.CheckInterval = 30s, got %v", as.CheckInterval)
-		}
+		validateAutoScalingDefaults(t, cfg.Worker.AutoScaling)
 	})
 
 	t.Run("Broker defaults", func(t *testing.T) {
-		if cfg.Broker.ListenAddr != ":8080" {
-			t.Errorf("expected Broker.ListenAddr = ':8080', got '%s'", cfg.Broker.ListenAddr)
-		}
-		if cfg.Broker.RetentionPeriod != 24*time.Hour {
-			t.Errorf("expected Broker.RetentionPeriod = 24h, got %v", cfg.Broker.RetentionPeriod)
-		}
-		if cfg.Broker.DLQEnabled != true {
-			t.Errorf("expected Broker.DLQEnabled = true, got %v", cfg.Broker.DLQEnabled)
-		}
-		if cfg.Broker.DLQRetentionDay != 7 {
-			t.Errorf("expected Broker.DLQRetentionDay = 7, got %d", cfg.Broker.DLQRetentionDay)
-		}
+		validateBrokerDefaults(t, cfg.Broker)
 	})
 
 	t.Run("Dashboard defaults", func(t *testing.T) {
-		if cfg.Dashboard.Enabled != true {
-			t.Errorf("expected Dashboard.Enabled = true, got %v", cfg.Dashboard.Enabled)
-		}
-		if cfg.Dashboard.ListenAddr != ":8080" {
-			t.Errorf("expected Dashboard.ListenAddr = ':8080', got '%s'", cfg.Dashboard.ListenAddr)
-		}
-		if cfg.Dashboard.RefreshMS != 1000 {
-			t.Errorf("expected Dashboard.RefreshMS = 1000, got %d", cfg.Dashboard.RefreshMS)
-		}
+		validateDashboardDefaults(t, cfg.Dashboard)
 	})
 
 	t.Run("Logging defaults", func(t *testing.T) {
-		if cfg.Logging.Level != "info" {
-			t.Errorf("expected Logging.Level = 'info', got '%s'", cfg.Logging.Level)
-		}
-		if cfg.Logging.Format != "text" {
-			t.Errorf("expected Logging.Format = 'text', got '%s'", cfg.Logging.Format)
-		}
+		validateLoggingDefaults(t, cfg.Logging)
 	})
 }
 
