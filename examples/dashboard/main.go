@@ -21,26 +21,18 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// DashboardDemo demonstrates the real-time dashboard with a realistic workload
-func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("Starting Spool Dashboard Demo...")
-
+// initializeComponents sets up all required components
+func initializeComponents(ctx context.Context) (*DashboardComponents, error) {
 	// Load configuration
 	redisAddr := "localhost:6379"
 	redisPassword := ""
 	redisDB := 0
 
-	// Set up context with cancellation
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// Initialize Redis queue
 	q, err := queue.NewRedisQueue(redisAddr, redisPassword, redisDB, 10)
 	if err != nil {
-		log.Fatalf("Failed to create queue: %v", err)
+		return nil, fmt.Errorf("failed to create queue: %w", err)
 	}
-	defer q.Close()
 
 	// Purge existing tasks for clean demo
 	if err := q.Purge(ctx); err != nil {
@@ -54,85 +46,15 @@ func main() {
 		DB:       redisDB,
 	})
 	store := storage.NewRedisStorage(redisClient)
-	defer store.Close()
 
 	// Initialize metrics
 	metrics := monitoring.NewMetrics(q)
 
 	// Initialize task registry with sample handlers
 	registry := task.NewRegistry()
+	setupTaskHandlers(registry)
 
-	// Register sample task handlers
-	registry.Register("process_image", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
-		// Simulate image processing work
-		time.Sleep(time.Duration(rand.Intn(500)+200) * time.Millisecond)
-
-		// 10% chance of failure for demo purposes
-		if rand.Float64() < 0.10 {
-			return nil, fmt.Errorf("image processing failed: corrupted file")
-		}
-
-		log.Printf("✓ Processed image task")
-		return "success", nil
-	})
-
-	registry.Register("send_email", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
-		// Simulate email sending
-		time.Sleep(time.Duration(rand.Intn(300)+100) * time.Millisecond)
-
-		// 5% chance of failure
-		if rand.Float64() < 0.05 {
-			return nil, fmt.Errorf("email send failed: SMTP timeout")
-		}
-
-		log.Printf("Sent email task")
-		return "success", nil
-	})
-
-	registry.Register("generate_report", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
-		// Simulate report generation
-		time.Sleep(time.Duration(rand.Intn(800)+400) * time.Millisecond)
-
-		// 8% chance of failure
-		if rand.Float64() < 0.08 {
-			return nil, fmt.Errorf("report generation failed: insufficient data")
-		}
-
-		log.Printf("Generated report task")
-		return "success", nil
-	})
-
-	registry.Register("data_export", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
-		// Simulate data export
-		time.Sleep(time.Duration(rand.Intn(600)+300) * time.Millisecond)
-
-		// 12% chance of failure
-		if rand.Float64() < 0.12 {
-			return nil, fmt.Errorf("data export failed: disk full")
-		}
-
-		log.Printf("Exported data task")
-		return "success", nil
-	})
-
-	registry.Register("backup_database", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
-		// Simulate database backup
-		time.Sleep(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
-
-		// 3% chance of failure
-		if rand.Float64() < 0.03 {
-			return nil, fmt.Errorf("backup failed: connection lost")
-		}
-
-		log.Printf("Backed up database task")
-		return "success", nil
-	})
-
-	// Start worker pool with 5 workers
-	log.Println("Starting worker pool with 5 workers...")
-
-	// Start dashboard server first so workers can broadcast to it
-	log.Println("Starting dashboard server on http://localhost:8080")
+	// Start dashboard server
 	dashboard := web.NewServer(web.Config{
 		Addr:    ":8080",
 		Metrics: metrics,
@@ -140,38 +62,159 @@ func main() {
 		Storage: store,
 	})
 
+	return &DashboardComponents{
+		queue:     q,
+		store:     store,
+		metrics:   metrics,
+		registry:  registry,
+		dashboard: dashboard,
+	}, nil
+}
+
+// cleanup closes all resources
+func (d *DashboardComponents) cleanup() {
+	if d.queue != nil {
+		d.queue.Close()
+	}
+	if d.store != nil {
+		d.store.Close()
+	}
+}
+
+// setupTaskHandlers registers all sample task handlers
+func setupTaskHandlers(registry *task.Registry) {
+	registry.Register("process_image", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+		time.Sleep(time.Duration(rand.Intn(500)+200) * time.Millisecond)
+		if rand.Float64() < 0.10 {
+			return nil, fmt.Errorf("image processing failed: corrupted file")
+		}
+		log.Printf("✓ Processed image task")
+		return "success", nil
+	})
+
+	registry.Register("send_email", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+		time.Sleep(time.Duration(rand.Intn(300)+100) * time.Millisecond)
+		if rand.Float64() < 0.05 {
+			return nil, fmt.Errorf("email send failed: SMTP timeout")
+		}
+		log.Printf("Sent email task")
+		return "success", nil
+	})
+
+	registry.Register("generate_report", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+		time.Sleep(time.Duration(rand.Intn(800)+400) * time.Millisecond)
+		if rand.Float64() < 0.08 {
+			return nil, fmt.Errorf("report generation failed: insufficient data")
+		}
+		log.Printf("Generated report task")
+		return "success", nil
+	})
+
+	registry.Register("data_export", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+		time.Sleep(time.Duration(rand.Intn(600)+300) * time.Millisecond)
+		if rand.Float64() < 0.12 {
+			return nil, fmt.Errorf("data export failed: disk full")
+		}
+		log.Printf("Exported data task")
+		return "success", nil
+	})
+
+	registry.Register("backup_database", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+		time.Sleep(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
+		if rand.Float64() < 0.03 {
+			return nil, fmt.Errorf("backup failed: connection lost")
+		}
+		log.Printf("Backed up database task")
+		return "success", nil
+	})
+}
+
+// DashboardComponents holds all the initialized components
+type DashboardComponents struct {
+	queue     queue.Queue
+	store     storage.Storage
+	metrics   *monitoring.Metrics
+	registry  *task.Registry
+	dashboard *web.Server
+}
+
+// DashboardDemo demonstrates the real-time dashboard with a realistic workload
+func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println("Starting Spool Dashboard Demo...")
+
+	// Set up context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Initialize all components
+	components, err := initializeComponents(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize components: %v", err)
+	}
+	defer components.cleanup()
+
+	// Start workers and run demo
+	runDemo(ctx, components)
+
+	log.Println("Demo completed successfully!")
+}
+
+// runDemo starts the workers, dashboard server and runs the demo
+func runDemo(ctx context.Context, components *DashboardComponents) {
+	// Start dashboard server first so workers can broadcast to it
+	log.Println("Starting dashboard server on http://localhost:8080")
+
 	// Start server in goroutine
 	serverErrChan := make(chan error, 1)
 	go func() {
-		serverErrChan <- dashboard.Start()
+		serverErrChan <- components.dashboard.Start()
 	}()
 
 	// Give server a moment to start
 	time.Sleep(500 * time.Millisecond)
 
+	// Start worker pool with 5 workers
+	log.Println("Starting worker pool with 5 workers...")
+	startWorkers(ctx, components)
+
+	// Start task generator to simulate realistic workload
+	go generateTasks(ctx, components.queue, components.metrics)
+
+	// Start queue depth updater
+	startQueueMonitor(ctx, components.metrics)
+
+	// Display instructions
+	displayInstructions()
+
+	// Wait for shutdown signal
+	waitForShutdown(ctx, serverErrChan, components)
+}
+
+// startWorkers initializes and starts the worker pool
+func startWorkers(ctx context.Context, components *DashboardComponents) {
 	workers := make([]*worker.Worker, 5)
 	for i := 0; i < 5; i++ {
-		w := worker.NewWorker(q, store, registry, worker.Config{
+		w := worker.NewWorker(components.queue, components.store, components.registry, worker.Config{
 			ID:           fmt.Sprintf("worker-%d", i+1),
 			PollInterval: 100 * time.Millisecond,
 		})
 
 		// Register worker with metrics
-		metrics.RegisterWorker(w.ID())
+		components.metrics.RegisterWorker(w.ID())
 
 		// Start worker with instrumentation and task event broadcasting
-		instrumentedWorker := worker.NewInstrumentedWorker(w, metrics)
+		instrumentedWorker := worker.NewInstrumentedWorker(w, components.metrics)
 
 		// Wrap to broadcast task events to dashboard
-		go startWorkerWithEventBroadcast(ctx, instrumentedWorker, dashboard)
+		go startWorkerWithEventBroadcast(ctx, instrumentedWorker, components.dashboard)
 
 		workers[i] = w
 	}
+}
 
-	// Start task generator to simulate realistic workload
-	go generateTasks(ctx, q, metrics)
-
-	// Start queue depth updater
+// startQueueMonitor starts the queue depth monitoring
+func startQueueMonitor(ctx context.Context, metrics *monitoring.Metrics) {
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
@@ -186,8 +229,10 @@ func main() {
 			}
 		}
 	}()
+}
 
-	// Display instructions
+// displayInstructions shows the demo instructions to the user
+func displayInstructions() {
 	fmt.Println("\n" + strings.Repeat("=", 70))
 	fmt.Println("DASHBOARD DEMO RUNNING")
 	fmt.Println(strings.Repeat("=", 70))
@@ -205,7 +250,10 @@ func main() {
 	fmt.Println("")
 	fmt.Println("Press Ctrl+C to stop the demo")
 	fmt.Println(strings.Repeat("=", 70) + "\n")
+}
 
+// waitForShutdown handles graceful shutdown
+func waitForShutdown(ctx context.Context, serverErrChan chan error, components *DashboardComponents) {
 	// Wait for shutdown signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -219,7 +267,7 @@ func main() {
 
 	// Graceful shutdown
 	log.Println("Stopping workers...")
-	cancel() // Cancel context for all workers
+	// Workers will stop when context is cancelled
 
 	// Wait for workers to finish
 	time.Sleep(2 * time.Second)
@@ -229,11 +277,16 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := dashboard.Stop(shutdownCtx); err != nil {
+	if err := components.dashboard.Stop(shutdownCtx); err != nil {
 		log.Printf("Error stopping dashboard: %v", err)
 	}
 
 	// Print final statistics
+	printFinalStats(components.metrics)
+}
+
+// printFinalStats displays the final statistics
+func printFinalStats(metrics *monitoring.Metrics) {
 	snapshot := metrics.Snapshot()
 	fmt.Println("\n" + strings.Repeat("=", 70))
 	fmt.Println("FINAL STATISTICS")
@@ -247,8 +300,6 @@ func main() {
 	fmt.Printf("Avg Process Time:  %v\n", snapshot.AvgProcessingTime)
 	fmt.Printf("Total Uptime:      %v\n", snapshot.Uptime)
 	fmt.Println(strings.Repeat("=", 70))
-
-	log.Println("Demo completed successfully!")
 }
 
 // generateTasks continuously generates tasks to simulate a realistic workload
