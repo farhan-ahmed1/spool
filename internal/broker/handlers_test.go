@@ -346,7 +346,7 @@ func TestBroker_handleTaskByID(t *testing.T) {
 					ID:   "test-task-1",
 					Type: "email",
 				}
-				mockStorage.SaveTask(context.TODO(), testTask)
+				_ = mockStorage.SaveTask(context.TODO(), testTask)
 			case "task not found":
 				mockStorage.setGetTaskError(errors.New("not found"))
 			}

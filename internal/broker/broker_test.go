@@ -390,7 +390,9 @@ func TestBroker_Ready(t *testing.T) {
 
 	// Start broker
 	go func() {
-		broker.Start()
+		if err := broker.Start(); err != nil {
+			t.Errorf("broker.Start() error: %v", err)
+		}
 	}()
 
 	// Ready channel should be closed after Start
@@ -404,5 +406,7 @@ func TestBroker_Ready(t *testing.T) {
 	// Cleanup
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	broker.Stop(ctx)
+	if err := broker.Stop(ctx); err != nil {
+		t.Errorf("broker.Stop() error: %v", err)
+	}
 }

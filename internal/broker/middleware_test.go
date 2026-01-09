@@ -12,7 +12,7 @@ func TestBroker_withLogging(t *testing.T) {
 	// Create a test handler that we can wrap
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 
 	// Wrap the handler with logging middleware
@@ -80,7 +80,7 @@ func TestBroker_withCORS(t *testing.T) {
 	// Create a test handler that we can wrap
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 
 	// Wrap the handler with CORS middleware
@@ -170,7 +170,7 @@ func TestBroker_middlewareChain(t *testing.T) {
 	// Create a test handler
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("chained response"))
+		_, _ = w.Write([]byte("chained response"))
 	})
 
 	// Apply both middlewares (as done in broker.Start())
