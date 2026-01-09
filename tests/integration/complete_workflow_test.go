@@ -50,7 +50,7 @@ func TestE2E_CompleteWorkflow(t *testing.T) {
 	executePhase2HighLoad(t, ctx, components, workerManager)
 	executePhase3RetryMechanism(t, ctx, components)
 	executePhase4MetricsVerification(t, components)
-	
+
 	t.Log("Workflow test completed successfully")
 	t.Logf("Total tasks executed: %d", atomic.LoadInt32(components.executedCount))
 	t.Logf("Total failed attempts: %d", atomic.LoadInt32(components.failedCount))
@@ -221,8 +221,8 @@ type testComponents struct {
 }
 
 type workerManager struct {
-	workers   []*worker.InstrumentedWorker
-	mutex     sync.Mutex
+	workers          []*worker.InstrumentedWorker
+	mutex            sync.Mutex
 	createWorkerFunc func(id string) *worker.InstrumentedWorker
 }
 
@@ -235,11 +235,11 @@ func setupRedisClient(t *testing.T, ctx context.Context) *redis.Client {
 	if err := client.Ping(ctx).Err(); err != nil {
 		t.Skipf("Redis not available: %v", err)
 	}
-	
+
 	if err := client.FlushDB(ctx).Err(); err != nil {
 		t.Fatalf("Failed to flush Redis: %v", err)
 	}
-	
+
 	return client
 }
 
@@ -371,7 +371,7 @@ func shutdownDashboardServer(t *testing.T, server *web.Server) {
 func shutdownWorkers(t *testing.T, wm *workerManager) {
 	wm.mutex.Lock()
 	defer wm.mutex.Unlock()
-	
+
 	for i, w := range wm.workers {
 		t.Logf("Stopping worker %d", i+1)
 		if err := w.Stop(); err != nil {
@@ -553,7 +553,7 @@ func stopWorker(t *testing.T, worker *worker.InstrumentedWorker) {
 func executeMetricsAccuracyTest(t *testing.T, ctx context.Context, components *dashboardMetricsComponents) {
 	taskCount := 20
 	t.Logf("Enqueuing %d tasks", taskCount)
-	
+
 	for i := 0; i < taskCount; i++ {
 		tsk, err := task.NewTask("test_task", map[string]interface{}{"id": i})
 		if err != nil {
@@ -646,7 +646,7 @@ func setupConcurrentWorkersTest(t *testing.T, ctx context.Context, client *redis
 func startConcurrentWorkers(t *testing.T, ctx context.Context, components *concurrentWorkersComponents) []*worker.InstrumentedWorker {
 	workerCount := 3
 	workers := make([]*worker.InstrumentedWorker, workerCount)
-	
+
 	for i := 0; i < workerCount; i++ {
 		w := worker.NewWorker(components.q, components.store, components.registry, worker.Config{
 			ID:           fmt.Sprintf("worker-%d", i+1),
@@ -672,7 +672,7 @@ func stopConcurrentWorkers(t *testing.T, workers []*worker.InstrumentedWorker) {
 func executeConcurrencyTest(t *testing.T, ctx context.Context, components *concurrentWorkersComponents) {
 	taskCount := 50
 	workerCount := 3
-	
+
 	t.Logf("Enqueuing %d tasks for %d concurrent workers", taskCount, workerCount)
 	for i := 0; i < taskCount; i++ {
 		tsk, err := task.NewTask("concurrent_task", map[string]interface{}{
