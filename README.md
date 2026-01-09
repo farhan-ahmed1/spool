@@ -6,7 +6,7 @@
 [![Performance](https://img.shields.io/badge/throughput-3000%20tasks%2Fs-orange.svg)](docs/05_BENCHMARKS.md)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/)
 
-A production-grade distributed task queue built in Go with Redis, featuring priority queuing, adaptive auto-scaling, and real-time monitoring with sub-50ms P99 latency at 3,000+ tasks/second.
+A distributed task queue built in Go with Redis, featuring priority queuing, adaptive auto-scaling, and real-time monitoring with sub-50ms P99 latency at 3,000+ tasks/second.
 
 ## Features
 
@@ -52,6 +52,20 @@ A production-grade distributed task queue built in Go with Redis, featuring prio
 3. Workers poll queue, execute tasks, and store results in Redis
 4. Auto-scaler monitors queue depth and adjusts worker pool size
 5. Dashboard receives real-time updates via WebSocket
+
+## Demo
+
+### Live Dashboard
+
+![Spool Dashboard - Real-time Metrics](tech-docs/images/dashboard-overview.png)
+*Real-time metrics dashboard showing throughput, latency, queue depths, and worker states*
+
+### Auto-Scaling in Action
+
+![Auto-scaling Demo](docs/images/auto-scaling.gif)
+*Workers automatically scale from 5→25 as queue depth increases, then scale back down*
+
+**🎬 [Watch 60-second Demo Video](docs/videos/spool-demo.mp4)**
 
 ## Quick Start
 
