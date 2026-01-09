@@ -62,7 +62,7 @@ A distributed task queue built in Go with Redis, featuring priority queuing, ada
 
 ### Auto-Scaling in Action
 
-![Auto-scaling Demo](tech-docs/videos/auto-scaling.mov)
+![Auto-scaling Demo](tech-docs/videos/auto-scaling.gif)
 *Workers automatically scale from 5→25 as queue depth increases, then scale back down*
 
 **🎬 [Watch 60-second Demo Video](docs/videos/spool-demo.mp4)**
