@@ -35,6 +35,7 @@ func (m *mockQueue) Size(ctx context.Context) (int64, error) {
 	}
 	return m.size, nil
 }
+
 func (m *mockQueue) SizeByPriority(ctx context.Context) (map[task.Priority]int64, error) {
 	return nil, nil
 }
