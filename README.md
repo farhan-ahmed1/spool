@@ -62,7 +62,7 @@ A distributed task queue built in Go with Redis, featuring priority queuing, ada
 
 ### Auto-Scaling in Action
 
-![Auto-scaling Demo](docs/images/auto-scaling.gif)
+![Auto-scaling Demo](docs/images/auto-scaling.mov)
 *Workers automatically scale from 5→25 as queue depth increases, then scale back down*
 
 **🎬 [Watch 60-second Demo Video](docs/videos/spool-demo.mp4)**
@@ -75,19 +75,16 @@ A distributed task queue built in Go with Redis, featuring priority queuing, ada
 # Start Redis
 make docker-up
 
-# Terminal 1: Start broker with dashboard
-go run cmd/broker/main.go
+# Terminal 1: Start the complete dashboard with auto-scaling demo
+go run examples/dashboard/main.go
 
-# Terminal 2: Start worker pool
-go run cmd/worker/main.go
-
-# Terminal 3: Submit sample tasks
-go run examples/simple/main.go
+# Terminal 2: For auto-scaling demonstration
+go run examples/autoscaling/main.go
 ```
 
 Open `http://localhost:8080` to view the real-time metrics dashboard.
 
-**Expected behavior:** Workers auto-scale from 5→25 as queue fills, then scale back down as tasks complete.
+**Expected behavior:** Dashboard shows real-time task processing. For auto-scaling demo, workers scale from 2→10 based on queue depth, then scale back down to 2 during idle periods.
 
 ## Performance
 
