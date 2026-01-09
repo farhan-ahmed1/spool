@@ -116,7 +116,7 @@ func cleanupBenchmarkEnvironment(q *queue.RedisQueue, workers []*worker.Worker, 
 
 // BenchmarkTaskThroughput measures tasks processed per second
 func BenchmarkTaskThroughput(b *testing.B) {
-	workerCounts := []int{1, 2, 4, 8}
+	workerCounts := []int{1, 2, 4, 8, 16}
 
 	for _, numWorkers := range workerCounts {
 		b.Run(fmt.Sprintf("Workers=%d", numWorkers), func(b *testing.B) {
@@ -126,6 +126,7 @@ func BenchmarkTaskThroughput(b *testing.B) {
 			}
 			defer cleanupBenchmarkEnvironment(q, workers, client)
 			ctx := context.Background()
+			
 			// Start workers
 			for _, w := range workers {
 				if err := w.Start(ctx); err != nil {
@@ -155,18 +156,151 @@ func BenchmarkTaskThroughput(b *testing.B) {
 			}
 
 			// Wait for all tasks to complete
+			timeout := time.After(60 * time.Second)
+			ticker := time.NewTicker(10 * time.Millisecond)
+			defer ticker.Stop()
+			
 			for {
-				completed, _ := getCompletedCount(ctx, store)
-				if completed >= int64(b.N) {
-					break
+				select {
+				case <-ticker.C:
+					completed, _ := getCompletedCount(ctx, store)
+					if completed >= int64(b.N) {
+						b.StopTimer()
+						return
+					}
+				case <-timeout:
+					b.Fatalf("Timeout waiting for tasks to complete")
 				}
-
-				time.Sleep(10 * time.Millisecond)
 			}
-
-			b.StopTimer()
 		})
 	}
+}
+
+// BenchmarkEnqueueOnly measures just enqueue performance
+func BenchmarkEnqueueOnly(b *testing.B) {
+	q, _, _, _, client, err := setupBenchmarkEnvironment(0) // No workers
+	if err != nil {
+		b.Fatalf("Failed to setup benchmark: %v", err)
+	}
+	defer cleanupBenchmarkEnvironment(q, nil, client)
+	
+	ctx := context.Background()
+	
+	b.ResetTimer()
+	b.ReportAllocs()
+	
+	for i := 0; i < b.N; i++ {
+		t, err := task.NewTask("benchmark_task", TestPayload{
+			Message: fmt.Sprintf("Task %d", i),
+			Number:  i,
+		})
+		if err != nil {
+			b.Fatalf("Failed to create task: %v", err)
+		}
+		
+		if err := q.Enqueue(ctx, t); err != nil {
+			b.Fatalf("Failed to enqueue task: %v", err)
+		}
+	}
+}
+
+// BenchmarkDequeueOnly measures just dequeue performance
+func BenchmarkDequeueOnly(b *testing.B) {
+	q, _, _, _, client, err := setupBenchmarkEnvironment(0)
+	if err != nil {
+		b.Fatalf("Failed to setup benchmark: %v", err)
+	}
+	defer cleanupBenchmarkEnvironment(q, nil, client)
+	
+	ctx := context.Background()
+	
+	// Pre-populate queue
+	for i := 0; i < b.N; i++ {
+		t, _ := task.NewTask("benchmark_task", TestPayload{
+			Message: fmt.Sprintf("Task %d", i),
+			Number:  i,
+		})
+		q.Enqueue(ctx, t)
+	}
+	
+	b.ResetTimer()
+	b.ReportAllocs()
+	
+	for i := 0; i < b.N; i++ {
+		_, err := q.Dequeue(ctx)
+		if err != nil {
+			b.Fatalf("Failed to dequeue task: %v", err)
+		}
+	}
+}
+
+// BenchmarkTaskProcessing measures end-to-end task processing
+func BenchmarkTaskProcessing(b *testing.B) {
+	payloadSizes := []int{100, 1024, 10240} // 100B, 1KB, 10KB
+	
+	for _, size := range payloadSizes {
+		b.Run(fmt.Sprintf("PayloadSize=%dB", size), func(b *testing.B) {
+			q, store, workers, registry, client, err := setupBenchmarkEnvironment(4)
+			if err != nil {
+				b.Fatalf("Failed to setup benchmark: %v", err)
+			}
+			defer cleanupBenchmarkEnvironment(q, workers, client)
+			
+			// Register handler with payload processing
+			registry.Register("payload_task", func(ctx context.Context, payload json.RawMessage) (interface{}, error) {
+				var data map[string]interface{}
+				json.Unmarshal(payload, &data)
+				// Simulate some processing
+				return data, nil
+			})
+			
+			ctx := context.Background()
+			
+			// Start workers
+			for _, w := range workers {
+				w.Start(ctx)
+			}
+			time.Sleep(100 * time.Millisecond)
+			
+			b.ResetTimer()
+			b.ReportAllocs()
+			
+			// Generate payload
+			payload := make(map[string]interface{})
+			payload["data"] = generateLargePayload(size)
+			
+			for i := 0; i < b.N; i++ {
+				t, _ := task.NewTask("payload_task", payload)
+				q.Enqueue(ctx, t)
+			}
+			
+			// Wait for completion
+			timeout := time.After(60 * time.Second)
+			ticker := time.NewTicker(10 * time.Millisecond)
+			defer ticker.Stop()
+			
+			for {
+				select {
+				case <-ticker.C:
+					completed, _ := getCompletedCount(ctx, store)
+					if completed >= int64(b.N) {
+						b.StopTimer()
+						return
+					}
+				case <-timeout:
+					b.Fatalf("Timeout waiting for tasks")
+				}
+			}
+		})
+	}
+}
+
+func generateLargePayload(size int) string {
+	b := make([]byte, size)
+	for i := range b {
+		b[i] = byte('a' + (i % 26))
+	}
+	return string(b)
 }
 
 // TestThroughputRequirement verifies the system can process 100+ tasks/second
