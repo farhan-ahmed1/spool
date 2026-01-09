@@ -57,17 +57,13 @@ A distributed task queue built in Go with Redis, featuring priority queuing, ada
 
 ### Live Dashboard
 
-<img src="tech-docs/images/dashboard-view.png" alt="Spool Dashboard - Real-time Metrics" width="800"/>
-
+![Spool Dashboard - Real-time Metrics](tech-docs/images/dashboard-view.png)
 *Real-time metrics dashboard showing throughput, latency, queue depths, and worker states*
 
 ### Auto-Scaling in Action
 
-<img src="tech-docs/videos/auto-scaling.gif" alt="Auto-scaling Demo" width="800"/>
-
+![Auto-scaling Demo](tech-docs/videos/auto-scaling.gif)
 *Workers automatically scale from 1→3 workers as queue depth increases, then scale back down during idle periods*
-
-**🎬 [Watch 60-second Demo Video](docs/videos/spool-demo.mp4)**
 
 ## Quick Start
 
