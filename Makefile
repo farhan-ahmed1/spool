@@ -33,7 +33,6 @@ build:
 	@mkdir -p bin
 	go build -o bin/broker ./cmd/broker
 	go build -o bin/worker ./cmd/worker
-	go build -o bin/client ./cmd/client
 	@echo "Build complete! Binaries in ./bin/"
 
 # Run tests
