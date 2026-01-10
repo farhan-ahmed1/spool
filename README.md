@@ -125,18 +125,18 @@ go test -bench=BenchmarkTaskThroughput -benchmem ./tests/load/
 
 Detailed results and methodology available in [docs/performance.md](docs/performance.md).
 
-## Comparison
+## Key Strengths
 
-| Feature | Spool | Celery | RabbitMQ |
-| --------- | ------- | -------- | ---------- |
-| **Throughput** | ~3,000/sec | ~1,000/sec | ~5,000/sec |
-| **Setup Complexity** | Low | Medium | High |
-| **Auto-scaling** | ✓ Built-in | ✗ External | ✗ External |
-| **Language** | Go | Python | Erlang |
-| **Priority Queues** | ✓ 5 levels | ✓ Limited | ✓ Full |
-| **Best For** | Go microservices | Python ecosystems | Complex routing |
+| Feature | Details |
+| --------- | --------- |
+| **High Throughput** | 3,000+ tasks/sec with sub-50ms P99 latency |
+| **Built-in Auto-scaling** | Dynamic worker pool sizing without external orchestration |
+| **Simple Setup** | Single Redis dependency, minimal configuration |
+| **Go-Native** | Leverages Go's concurrency primitives and goroutines |
+| **5-Level Priority System** | Fine-grained task prioritization via Redis sorted sets |
+| **Real-Time Observability** | WebSocket-powered dashboard with live metrics |
 
-*Benchmarks performed under equivalent conditions.*
+**Best for:** Go microservices needing reliable task processing with minimal operational overhead.
 
 ## Technical Highlights
 
