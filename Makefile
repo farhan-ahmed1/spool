@@ -79,13 +79,13 @@ dev:
 # Start Docker services
 docker-up:
 	@echo "Starting Docker services..."
-	docker-compose -f deployments/docker-compose.yml up -d
+	docker-compose up -d
 	@echo "Redis running on localhost:6379"
 
 # Stop Docker services
 docker-down:
 	@echo "Stopping Docker services..."
-	docker-compose -f deployments/docker-compose.yml down
+	docker-compose down
 	@echo "Services stopped"
 
 # Run benchmarks

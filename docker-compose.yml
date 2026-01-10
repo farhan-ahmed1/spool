@@ -13,7 +13,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # Redis Commander - GUI for Redis (optional, useful for debugging)
+  # Redis Commander
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: spool-redis-commander
@@ -24,7 +24,7 @@ services:
     depends_on:
       - redis
 
-  # Prometheus (for metrics - Week 2)
+  # Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: spool-prometheus
@@ -39,7 +39,7 @@ services:
     profiles:
       - monitoring
 
-  # Grafana (for dashboards - Week 2)
+  # Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: spool-grafana
