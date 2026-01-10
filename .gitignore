@@ -60,8 +60,5 @@ data/
 # OS specific
 Thumbs.db
 
-# extra docs
-docs/
-
 # .github
 .github/copilot-instructions.md

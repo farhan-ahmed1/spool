@@ -57,12 +57,12 @@ A distributed task queue built in Go with Redis, featuring priority queuing, ada
 
 ### Live Dashboard
 
-![Spool Dashboard - Real-time Metrics](tech-docs/images/dashboard-view.png)
+![Spool Dashboard - Real-time Metrics](docs/images/dashboard-view.png)
 *Real-time metrics dashboard showing throughput, latency, queue depths, and worker states*
 
 ### Auto-Scaling in Action
 
-![Auto-scaling Demo](tech-docs/videos/auto-scaling.gif)
+![Auto-scaling Demo](docs/videos/auto-scaling.gif)
 *Workers automatically scale from 1→3 workers as queue depth increases, then scale back down during idle periods*
 
 ## Quick Start
@@ -123,7 +123,7 @@ go test -v ./tests/load/ -run TestConcurrentTaskSubmission -timeout 2m
 go test -bench=BenchmarkTaskThroughput -benchmem ./tests/load/
 ```
 
-Detailed results and methodology available in [docs/05_BENCHMARKS.md](docs/05_BENCHMARKS.md).
+Detailed results and methodology available in [docs/performance.md](docs/performance.md).
 
 ## Comparison
 
@@ -136,7 +136,7 @@ Detailed results and methodology available in [docs/05_BENCHMARKS.md](docs/05_BE
 | **Priority Queues** | ✓ 5 levels | ✓ Limited | ✓ Full |
 | **Best For** | Go microservices | Python ecosystems | Complex routing |
 
-*Benchmarks performed under equivalent conditions. See [COMPARISON.md](docs/COMPARISON.md) for detailed analysis.*
+*Benchmarks performed under equivalent conditions.*
 
 ## Technical Highlights
 

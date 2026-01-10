@@ -215,7 +215,7 @@ cat mem_analysis.txt
 
 Implement optimizations based on analysis:
 
-- See `docs/PERFORMANCE_OPTIMIZATION.md` for strategies
+- See `docs/performance.md` for optimization strategies
 - Focus on top CPU and memory hotspots
 - One optimization at a time
 
@@ -363,9 +363,8 @@ go tool pprof -text cpu.prof
 
 ## Documentation
 
-- **Quick Reference**: [docs/BENCHMARK_QUICK_REF.md](../docs/BENCHMARK_QUICK_REF.md)
-- **Optimization Guide**: [docs/PERFORMANCE_OPTIMIZATION.md](../docs/PERFORMANCE_OPTIMIZATION.md)
-- **Implementation Summary**: [docs/15_PERFORMANCE_SUMMARY.md](../docs/15_PERFORMANCE_SUMMARY.md)
+- **Performance Guide**: [docs/performance.md](../../docs/performance.md)
+- **Architecture**: [docs/architecture.md](../../docs/architecture.md)
 
 ## Resources
 

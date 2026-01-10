@@ -12,12 +12,12 @@ import (
 
 const (
 	// Redis key prefixes
-	queueKeyPrefix      = "Spool:queue:"
-	processingKeyPrefix = "Spool:processing:"
-	taskKeyPrefix       = "Spool:task:"
-	statsKeyPrefix      = "Spool:stats:"
-	dlqKeyPrefix        = "Spool:dlq:"
-	dlqMetaPrefix       = "Spool:dlq:meta:"
+	queueKeyPrefix      = "spool:queue:"
+	processingKeyPrefix = "spool:processing:"
+	taskKeyPrefix       = "spool:task:"
+	statsKeyPrefix      = "spool:stats:"
+	dlqKeyPrefix        = "spool:dlq:"
+	dlqMetaPrefix       = "spool:dlq:meta:"
 
 	// Default timeouts
 	defaultEnqueueTimeout = 5 * time.Second
