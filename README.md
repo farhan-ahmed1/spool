@@ -3,7 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/farhan-ahmed1/spool.svg)](https://pkg.go.dev/github.com/farhan-ahmed1/spool)
 [![CI](https://github.com/farhan-ahmed1/spool/actions/workflows/ci.yml/badge.svg)](https://github.com/farhan-ahmed1/spool/actions)
 [![codecov](https://codecov.io/gh/farhan-ahmed1/spool/branch/main/graph/badge.svg)](https://codecov.io/gh/farhan-ahmed1/spool)
-[![Go Report Card](https://goreportcard.com/badge/github.com/farhan-ahmed1/spool)](https://goreportcard.com/report/github.com/farhan-ahmed1/spool)
+[![Go Report Card](https://goreportcard.com/badge/github.com/farhan-ahmed1/spool?v=2)](https://goreportcard.com/report/github.com/farhan-ahmed1/spool)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A distributed task queue built in Go with Redis, featuring priority queuing, adaptive auto-scaling, and real-time monitoring with sub-50ms P99 latency at 3,000+ tasks/second.
